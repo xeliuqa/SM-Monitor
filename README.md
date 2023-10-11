@@ -2,7 +2,9 @@
 Simple monitor for Spacemesh nodes
 
 This is the work of 3 people
-Sakki - Thanos - Jonh
+Sakki - PLainLazy - Jonh
+<br>
+<img src="https://github.com/xeliuqa/SM-Monitor/blob/main/image.png" height="300px" width="500px"/>
 
 To use this monitor you need GRPCurl
 Simply use with any GRPCurl software. <br> 
