@@ -18,6 +18,7 @@ Script supports as many nodes as you want.<br>
 Use "#" to comment out the options you dont need<br>
 <br>
 Please not that $SmesherID does not work Remotely and its disabled by default<br>
+This is a node safety feature<br>
 <br>
 Monitor will refresh every 5 minutes.<br>
 Since each layer lasts 5 minutes i don't see the need for faster refresh<br>
