@@ -1,7 +1,7 @@
 # SM-Monitor
-Simple monitor for Spacemesh nodes
+Simple monitor for Spacemesh nodes<br>
 
-This is the work of 3 people
+This is the work of 3 people<br>
 Sakki - PLainLazy - Jonh
 <br>
 <img src="https://github.com/xeliuqa/SM-Monitor/blob/main/image.png" height="300px" width="500px"/>
