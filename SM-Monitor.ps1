@@ -62,7 +62,7 @@ function main {
 
             $o = [PSCustomObject]@{
                 Info = $node.info
-                #SmesherID = $Key
+                SmesherID = $Key
                 Host = $node.host
                 Port = $node.port
                 Peers = $status.connectedPeers
