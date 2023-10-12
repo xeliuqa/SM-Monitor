@@ -19,8 +19,8 @@ config-mainnet.json for go-spacemesh<br>
 Script supports as many nodes as you want.<br>
 Use "#" to comment out the options you dont need<br>
 <br>
-Please not that $SmesherID does not work Remotely and its disabled by default<br>
-This is a node safety feature<br>
+Please note that to access port 9093 remotely you need to change config to
+`"grpc-private-listener": "0.0.0.0:9083",`<br>
 <br>
 Monitor will refresh every 5 minutes.<br>
 Since each layer lasts 5 minutes i don't see the need for faster refresh<br>
