@@ -87,11 +87,6 @@ function main {
                 if ($null -eq $status.isSynced){
                     $synced = "False"} else {$synced = "True"}
 
-                $versionCheck = "v1.2.1"
-                if ($version -ne $versionCheck){
-                    $versionQ = Write-Host $version -ForegroundColor Red
-                    } else { $versionQ = Write-Host $version -ForegroundColor Gray}
-
             }
     
             $o = [PSCustomObject]@{
