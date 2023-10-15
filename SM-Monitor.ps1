@@ -100,7 +100,7 @@ function main {
                 Layer= $status.syncedLayer.number
                 Top = $status.topLayer.number
                 Verified = $status.verifiedLayer.number
-                Ver = $versionQ
+                Ver = $version
                 Smeshing = $smeshing
             } 
             $object += $o
