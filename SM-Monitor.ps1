@@ -31,7 +31,7 @@ function main {
         @{ Column = "Synced"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" },
         @{ Column = "Synced"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
         @{ Column = "Layer Top Verified"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
-        @{ Column = "Ver"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
+        @{ Column = "Ver"; Value = $node.version; ForegroundColor = "Red"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" }
         @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" }
@@ -92,7 +92,14 @@ function main {
 
                 if ($null -eq $status.connectedPeers){
                     ($smeshing = "Offline"), ($node.synced = "Offline")
-                        }          
+                }
+                
+                $versionCheck = "v1.2.1"
+                if ([decimal]$versionCheck -gt [decimal]$version){
+                    $version = $node.version} else {
+                        $version = $node.version2
+                    }
+                }    
 
             }
     
@@ -138,99 +145,99 @@ function main {
             Start-Sleep 5
             }	
         }
+    
+
+
+    function B64_to_Hex{
+        param (
+            [Parameter(Position =0, Mandatory = $true)]
+            [string]$id2convert
+            )
+        [System.BitConverter]::ToString([System.Convert]::FromBase64String($id2convert)).Replace("-","")
     }
-
-
-function B64_to_Hex{
-    param (
-        [Parameter(Position =0, Mandatory = $true)]
-        [string]$id2convert
+    function Hex_to_B64{
+        param (
+            [Parameter(Position =0, Mandatory = $true)]
+            [string]$id2convert
         )
-    [System.BitConverter]::ToString([System.Convert]::FromBase64String($id2convert)).Replace("-","")
-}
-function Hex_to_B64{
-    param (
-        [Parameter(Position =0, Mandatory = $true)]
-        [string]$id2convert
-    )
-$NODE_ID_BYTES = for ($i = 0; $i -lt $id2convert.Length; $i += 2) { [Convert]::ToByte($id2convert.Substring($i, 2), 16) }
-[System.Convert]::ToBase64String($NODE_ID_BYTES)
-}
-function ColorizeMyObject {
-    param (
-        [Parameter(ValueFromPipeline = $true)]
-        $InputObject,
-
-        [Parameter(Mandatory = $true)]
-        [System.Collections.ArrayList]$ColumnRules
-    )
-
-    begin {
-        $dataBuffer = @()
+    $NODE_ID_BYTES = for ($i = 0; $i -lt $id2convert.Length; $i += 2) { [Convert]::ToByte($id2convert.Substring($i, 2), 16) }
+    [System.Convert]::ToBase64String($NODE_ID_BYTES)
     }
+    function ColorizeMyObject {
+        param (
+            [Parameter(ValueFromPipeline = $true)]
+            $InputObject,
 
-    process {
-        $dataBuffer += $InputObject
-    }
+            [Parameter(Mandatory = $true)]
+            [System.Collections.ArrayList]$ColumnRules
+        )
 
-    end {
-        $headers = $dataBuffer[0].PSObject.Properties.Name
-
-        $maxWidths = @{}
-        foreach ($header in $headers) {
-            $headerLength = "$header".Length
-            $dataMaxLength = ($dataBuffer | ForEach-Object { "$($_.$header)".Length } | Measure-Object -Maximum).Maximum
-            $maxWidths[$header] = [Math]::Max($headerLength, $dataMaxLength)
+        begin {
+            $dataBuffer = @()
         }
-        
-        $headers | ForEach-Object { 
-            $paddedHeader = $_.PadRight($maxWidths[$_])
-            Write-Host $paddedHeader -NoNewline; 
-            Write-Host "  " -NoNewline 
-        }
-        Write-Host ""
 
-        $headers | ForEach-Object {
-            $dashes = '-' * $maxWidths[$_]
-            Write-Host $dashes -NoNewline
-            Write-Host "  " -NoNewline
+        process {
+            $dataBuffer += $InputObject
         }
-        Write-Host ""
-        
-        foreach ($row in $dataBuffer) {
+
+        end {
+            $headers = $dataBuffer[0].PSObject.Properties.Name
+
+            $maxWidths = @{}
             foreach ($header in $headers) {
-                $propertyValue = "$($row.$header)"
-                $foregroundColor = $null
-                $backgroundColor = $null
+                $headerLength = "$header".Length
+                $dataMaxLength = ($dataBuffer | ForEach-Object { "$($_.$header)".Length } | Measure-Object -Maximum).Maximum
+                $maxWidths[$header] = [Math]::Max($headerLength, $dataMaxLength)
+            }
+            
+            $headers | ForEach-Object { 
+                $paddedHeader = $_.PadRight($maxWidths[$_])
+                Write-Host $paddedHeader -NoNewline; 
+                Write-Host "  " -NoNewline 
+            }
+            Write-Host ""
 
-                foreach ($rule in $ColumnRules) {
-                    if ($header -eq $rule.Column) {
-                        if ($propertyValue -like $rule.Value) {
-                            $foregroundColor = $rule.ForegroundColor
-                            if ($rule.BackgroundColor) {
-                                $backgroundColor = $rule.BackgroundColor
-                            }
-                            break
-                        }
-                    }
-                }
-
-                $paddedValue = $propertyValue.PadRight($maxWidths[$header])
-
-                if ($foregroundColor -or $backgroundColor) {
-                    if ($backgroundColor) {
-                        Write-Host $paddedValue -NoNewline -ForegroundColor $foregroundColor -BackgroundColor $backgroundColor
-                    } else {
-                        Write-Host $paddedValue -NoNewline -ForegroundColor $foregroundColor
-                    }
-                } else {
-                    Write-Host $paddedValue -NoNewline
-                }
-
+            $headers | ForEach-Object {
+                $dashes = '-' * $maxWidths[$_]
+                Write-Host $dashes -NoNewline
                 Write-Host "  " -NoNewline
             }
             Write-Host ""
+            
+            foreach ($row in $dataBuffer) {
+                foreach ($header in $headers) {
+                    $propertyValue = "$($row.$header)"
+                    $foregroundColor = $null
+                    $backgroundColor = $null
+
+                    foreach ($rule in $ColumnRules) {
+                        if ($header -eq $rule.Column) {
+                            if ($propertyValue -like $rule.Value) {
+                                $foregroundColor = $rule.ForegroundColor
+                                if ($rule.BackgroundColor) {
+                                    $backgroundColor = $rule.BackgroundColor
+                                }
+                                break
+                            }
+                        }
+                    }
+
+                    $paddedValue = $propertyValue.PadRight($maxWidths[$header])
+
+                    if ($foregroundColor -or $backgroundColor) {
+                        if ($backgroundColor) {
+                            Write-Host $paddedValue -NoNewline -ForegroundColor $foregroundColor -BackgroundColor $backgroundColor
+                        } else {
+                            Write-Host $paddedValue -NoNewline -ForegroundColor $foregroundColor
+                        }
+                    } else {
+                        Write-Host $paddedValue -NoNewline
+                    }
+
+                    Write-Host "  " -NoNewline
+                }
+                Write-Host ""
+            }
         }
     }
-}
 main
