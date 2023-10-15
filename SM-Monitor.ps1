@@ -26,12 +26,13 @@ function main {
         @{ Column = "Port";  ForegroundColor = "White"; BackgroundColor = "Black" },
         @{ Column = "Peers"; Value = "*"; ForegroundColor = "DarkCyan"; BackgroundColor = "Black" },
         @{ Column = "Peers"; Value = "0"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
-        @{ Column = "Size-TB"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
+        @{ Column = "SizeTB"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
         @{ Column = "Synced"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = "Black" },
         @{ Column = "Synced"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" },
         @{ Column = "Synced"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
         @{ Column = "Layer Top Verified"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
-        @{ Column = "Ver"; Value = $node.version; ForegroundColor = "Red"; BackgroundColor = "Black" },
+        @{ Column = "Version"; Value = $oldVersion; ForegroundColor = "Gray"; BackgroundColor = "Black" },
+        @{ Column = "Version"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" }
         @{ Column = "Smeshing"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" }
         @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" }
@@ -49,8 +50,11 @@ function main {
         )) | ConvertFrom-Json).atx 2>$null
         
         $epoch = ((Invoke-Expression (
-                "$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch"
-            )) | ConvertFrom-Json).epochnum 2>$null
+            "$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch"
+        )) | ConvertFrom-Json).epochnum 2>$null
+
+        $gitVersion = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/spacemeshos/go-spacemesh/releases/latest"
+        $currentVersion = $gitVersion.tag_name -replace "[^.0-9]"
 
         foreach ($node in $list) {
             Write-Host "Loading $($node.info) Ports ..."
@@ -60,8 +64,8 @@ function main {
             )) | ConvertFrom-Json).status  2>$null
 
             $version = ((Invoke-Expression (
-                "$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Version"
-            )) | ConvertFrom-Json).versionString.value  2>$null
+                "$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Version "
+            )) | ConvertFrom-Json).versionString.value -replace "[^.0-9]" 2>$null
 
 			if (($node.host -eq "localhost") -Or ($node.host -ne "localhost" -And $node.port2)){
                 $smeshing = ((Invoke-Expression (
@@ -91,15 +95,13 @@ function main {
                     $node.synced = "False"} else {$node.synced = "True"}
 
                 if ($null -eq $status.connectedPeers){
-                    ($smeshing = "Offline"), ($node.synced = "Offline")
+                    ($version = "Offline"), ($smeshing = "Offline"), ($node.synced = "Offline")
                 }
                 
-                $versionCheck = "v1.2.1"
-                if ([decimal]$versionCheck -gt [decimal]$version){
-                    $version = $node.version} else {
-                        $version = $node.version2
-                    }
-                }    
+
+                if ([version]$version -lt [version]$currentVersion) {
+                $version = $oldVersion 
+                }
 
             }
     
@@ -114,7 +116,7 @@ function main {
                 Layer= $status.syncedLayer.number
                 Top = $status.topLayer.number
                 Verified = $status.verifiedLayer.number
-                Ver = $version
+                Version = $version
                 Smeshing = $smeshing
             } 
             $object += $o
@@ -123,7 +125,7 @@ function main {
         $object | ColorizeMyObject -ColumnRules $columnRules # You must "select" your columns/properties.  Otherwise, hidden properties will corrupt your view.
 
         Clear-Host
-        $object | Select-Object Info, SmesherID, Host, Port, Peers, SizeTB, Synced, Layer, Top, Verified, Ver, Smeshing | ColorizeMyObject -ColumnRules $columnRules
+        $object | Select-Object Info, SmesherID, Host, Port, Peers, SizeTB, Synced, Layer, Top, Verified, Version, Smeshing | ColorizeMyObject -ColumnRules $columnRules
         Write-Host `n
 		Write-Host "-------------------------------- Netwotk Info: ---------------------------------" -ForegroundColor Yellow
 		Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch.number -ForegroundColor Green
@@ -145,6 +147,7 @@ function main {
             Start-Sleep 5
             }	
         }
+    }    
     
 
 
