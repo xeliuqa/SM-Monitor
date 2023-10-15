@@ -17,7 +17,7 @@ function main {
         @{ info = "Test"; host = "localhost";  port = 9082; port2 = 9083; }
         @{ info = "Smapp"; host = "localhost";  port = 9092; port2 = 9093; }
     )
-    # Colors: Black, Blue, Cyan, DarkBlue, DarkCyan, DarkGray, DarkGreen, DarkMagenta, DarkRed, DarkYellow, Gray, Green, Magenta, Red, White, Yellow
+   # Colors: Black, Blue, Cyan, DarkBlue, DarkCyan, DarkGray, DarkGreen, DarkMagenta, DarkRed, DarkYellow, Gray, Green, Magenta, Red, White, Yellow
 
     $columnRules = @(
         @{ Column = "Info"; Value = "*"; ForegroundColor = "Cyan"; BackgroundColor = "Black" },
@@ -25,13 +25,16 @@ function main {
         @{ Column = "Host"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
         @{ Column = "Port";  ForegroundColor = "White"; BackgroundColor = "Black" },
         @{ Column = "Peers"; Value = "*"; ForegroundColor = "DarkCyan"; BackgroundColor = "Black" },
+        @{ Column = "Peers"; Value = "0"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
         @{ Column = "Size-TB"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
         @{ Column = "Synced"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = "Black" },
         @{ Column = "Synced"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" },
+        @{ Column = "Synced"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
         @{ Column = "Layer Top Verified"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
         @{ Column = "Ver"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" }
+        @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" }
         
     )
 
@@ -85,7 +88,11 @@ function main {
                     $smeshing = "False"} else {$smeshing = "True"}
                 
                 if ($null -eq $status.isSynced){
-                    $synced = "False"} else {$synced = "True"}
+                    $node.synced = "False"} else {$node.synced = "True"}
+
+                if ($null -eq $status.connectedPeers){
+                    ($smeshing = "Offline"), ($node.synced = "Offline")
+                        }          
 
             }
     
@@ -96,7 +103,7 @@ function main {
                 Port = $node.port
                 Peers = $status.connectedPeers
                 SizeTB = $state.opts.numUnits * 64000 / 1000000 
-                Synced = $synced
+                Synced = $node.synced
                 Layer= $status.syncedLayer.number
                 Top = $status.topLayer.number
                 Verified = $status.verifiedLayer.number
@@ -226,6 +233,4 @@ function ColorizeMyObject {
         }
     }
 }
-
-
 main
