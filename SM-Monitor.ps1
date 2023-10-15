@@ -4,7 +4,7 @@
 # get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 function main {
-
+	$currentDate = Get-Date -Format HH:mm:ss
     $grpcurl = ".\grpcurl.exe"
 
     $list = @(
@@ -25,93 +25,102 @@ function main {
         @{ Column = "Host"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
         @{ Column = "Port";  ForegroundColor = "White"; BackgroundColor = "Black" },
         @{ Column = "Peers"; Value = "*"; ForegroundColor = "DarkCyan"; BackgroundColor = "Black" },
-        @{ Column = "Size-TB"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
+		@{ Column = "Peers"; Value = "0"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
+        @{ Column = "SU"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = "Black" },
+        @{ Column = "SizeTiB"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
         @{ Column = "Synced"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = "Black" },
         @{ Column = "Synced"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" },
+		@{ Column = "Synced"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
         @{ Column = "Layer Top Verified"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
         @{ Column = "Ver"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = "Black" },
-        @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" }
+        @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" },
+        @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" }
         
     )
 
+	
     while (1) {
 
-        Clear-Host		
+       Clear-Host		
         $object=@()
 
-        $node = $list[0]
-        $resultsNodeHighestATX = ((Invoke-Expression (
-            "$($grpcurl) --plaintext -max-time 10 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest"
-        )) | ConvertFrom-Json).atx 2>$null
-        
-        $epoch = ((Invoke-Expression (
-                "$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch"
-            )) | ConvertFrom-Json).epochnum 2>$null
-
         foreach ($node in $list) {
-            Write-Host "Loading $($node.info) Ports ..."
-            $currentDate = Get-Date -Format HH:mm:ss
-            $status = ((Invoke-Expression (
-                "$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Status"
-            )) | ConvertFrom-Json).status  2>$null
+			Write-Host "Loading $($node.info) Ports ..."
 
-            $version = ((Invoke-Expression (
-                "$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Version"
-            )) | ConvertFrom-Json).versionString.value  2>$null
+			if ($resultsNodeHighestATX -eq $null){
+				$resultsNodeHighestATX = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
+			}
+			if ($epoch -eq $null){
+				$epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
+			}
+			
+			$status = $null
+            $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
 
-			if (($node.host -eq "localhost") -Or ($node.host -ne "localhost" -And $node.port2)){
-                $smeshing = ((Invoke-Expression (
-                    "$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.IsSmeshing"
-                )) | ConvertFrom-Json) 2>$null
-    
-                $publicKey = $null
-                $publicKey = ((Invoke-Expression (
-                    "$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID"
-                )) | ConvertFrom-Json).publicKey 2>$null
+                if ($status -ne $null){
+				$node.online = "True"
+					if ($status.isSynced){
+				$node.synced = "True"} else {$node.synced = "False"}
+				$node.connectedPeers = $status.connectedPeers
+				$node.syncedLayer = $status.syncedLayer.number
+				$node.topLayer = $status.topLayer.number
+				$node.verifiedLayer = $status.verifiedLayer.number
+				}else {
+					$node.online = "False"
+					$node.smeshing = "Offline"
+					$node.synced = "Offline"}
 
-                $state = ((Invoke-Expression (
-                "$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus"
-                )) | ConvertFrom-Json).status 2>$null
-        
-                #Convert SmesherID to HEX
-                if ($null -ne $publicKey) {
-                $publicKey2 = (B64_to_Hex -id2convert $publicKey)
-                #Extract last 5 digits from SmesherID
-                $node.key = $publicKey2.substring($publicKey2.length -5, 5)
-                }
-                
-                if ($null -eq $smeshing.isSmeshing){
-                    $smeshing = "False"} else {$smeshing = "True"}
-                
-                if ($null -eq $status.isSynced){
-                    $synced = "False"} else {$synced = "True"}
+				if ($node.online -eq "True"){
+			$version = $null
+            $version = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Version")) | ConvertFrom-Json).versionString.value  2>$null
+			if ($version -ne $null){
+			$node.version = $version}
+			
+	#if (($node.host -eq "localhost") -Or ($node.host -ne "localhost" -And $node.port2 -ne 9093)){
+			$smeshing = $null
+			$smeshing = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.IsSmeshing")) | ConvertFrom-Json)	2>$null
+			
+			if ($smeshing -ne $null)
+					{$node.smeshing = "True"} else {$node.smeshing = "False"}
 
-                $versionCheck = "v1.2.1"
-                if ($version -ne $versionCheck){
-                    $versionQ = Write-Host $version -ForegroundColor Red
-                    } else { $versionQ = Write-Host $version -ForegroundColor Gray}
 
-            }
-    
+			$state = $null
+			$state = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus")) | ConvertFrom-Json).status 2>$null
+			
+		if ($state -ne $null) {
+			$node.numUnits = $state.opts.numUnits}
+
+			$publicKey = $null
+            $publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID")) | ConvertFrom-Json).publicKey 2>$null
+	
+
+            #Convert SmesherID to HEX
+			if ($publicKey -ne $null) {
+            $publicKey2 = (B64_to_Hex -id2convert $publicKey)
+            #Extract last 5 digits from SmesherID
+            $node.key = $publicKey2.substring($publicKey2.length -5, 5)
+			}
+	#}
+		}
+
             $o = [PSCustomObject]@{
                 Info = $node.info
                 SmesherID = $node.key
                 Host = $node.host
                 Port = $node.port
-                Peers = $status.connectedPeers
-                SizeTB = $state.opts.numUnits * 64000 / 1000000 
-                Synced = $synced
-                Layer= $status.syncedLayer.number
-                Top = $status.topLayer.number
-                Verified = $status.verifiedLayer.number
-                Ver = $versionQ
-                Smeshing = $smeshing
+                Peers = $node.connectedPeers
+		SU = $node.numUnits
+                "SizeTiB" = $node.numUnits * 64 * 0.001
+                Synced = $node.synced
+                Layer= $node.syncedLayer
+                Top = $node.topLayer
+                Verified = $node.verifiedLayer
+                Ver = $node.version
+				Smeshing = $node.smeshing
             } 
             $object += $o
         }
-
-        $object | ColorizeMyObject -ColumnRules $columnRules # You must "select" your columns/properties.  Otherwise, hidden properties will corrupt your view.
 
         Clear-Host
         $object | Select-Object Info, SmesherID, Host, Port, Peers, SizeTB, Synced, Layer, Top, Verified, Ver, Smeshing | ColorizeMyObject -ColumnRules $columnRules
