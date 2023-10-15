@@ -39,21 +39,25 @@ function main {
         
     )
 
-	
+Clear-Host	
     while (1) {
 
-       Clear-Host		
+		
         $object=@()
+	$resultsNodeHighestATX = $null
+	$epoch = $null
 
+ 	Write-Host `n
+	Write-Host -NoNewline "Loading ..."
         foreach ($node in $list) {
-			Write-Host "Loading $($node.info) Ports ..."
+		Write-Host  -NoNewline " $($node.info) "
 
-			if ($resultsNodeHighestATX -eq $null){
-				$resultsNodeHighestATX = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
-			}
-			if ($epoch -eq $null){
-				$epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
-			}
+		if ($resultsNodeHighestATX -eq $null){
+			$resultsNodeHighestATX = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
+		}
+		if ($epoch -eq $null){
+			$epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
+		}
 			
 			$status = $null
             $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
