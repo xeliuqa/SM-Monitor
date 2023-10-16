@@ -1,6 +1,8 @@
 # basedOn: https://discord.com/channels/623195163510046732/691261331382337586/1142174063293370498
 #and also: https://github.com/PlainLazy/crypto/blob/main/sm_watcher.ps1
-# thanksTo: --== S A K K I ==-- and PlainLazy
+# With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa
+#For the various contributions in making this script awesome
+#
 # get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 function main {
@@ -33,10 +35,10 @@ function main {
         @{ Column = "Synced"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
         @{ Column = "Layer Top Verified"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
         @{ Column = "Version"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
-        @{ Column = "Version"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" }
+        @{ Column = "Version"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = "Black" },
-        @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" }
-        @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" }
+        @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" },
+        @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = "Black" }
         
     )
