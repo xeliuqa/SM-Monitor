@@ -37,6 +37,7 @@ function main {
         @{ Column = "Smeshing"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" }
         @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" }
+        @{ Column = "Smeshing"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = "Black" }
         
     )
 
@@ -92,6 +93,11 @@ function main {
                 if ($null -eq $status.isSynced){
                     $node.synced = "False"} else {$node.synced = "True"}
 
+                if ($state.state -eq "STATE_IN_PROGRESS") {
+                    $percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 1)
+                    $smeshing = "Plotting $($percent)%"
+                }
+		
                 if ($null -eq $status.connectedPeers){
                     ($version = "Offline"), ($smeshing = "Offline"), ($node.synced = "Offline")
                         }          
