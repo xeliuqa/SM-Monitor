@@ -128,7 +128,7 @@ function main {
         Clear-Host
         $object | Select-Object Info, SmesherID, Host, Port, Peers, SizeTB, Synced, Layer, Top, Verified, Version, Smeshing | ColorizeMyObject -ColumnRules $columnRules
         Write-Host `n
-		Write-Host "-------------------------------- Netwotk Info: ---------------------------------" -ForegroundColor Yellow
+		Write-Host "-------------------------------- Network Info: ---------------------------------" -ForegroundColor Yellow
 		Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch.number -ForegroundColor Green
 		Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $resultsNodeHighestATX.id.id) -ForegroundColor Green
         Write-Host "ATX Base64_ID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.id.id -ForegroundColor Green
