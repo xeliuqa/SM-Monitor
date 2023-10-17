@@ -1,4 +1,4 @@
-# basedOn: https://discord.com/channels/623195163510046732/691261331382337586/1142174063293370498
+test# basedOn: https://discord.com/channels/623195163510046732/691261331382337586/1142174063293370498
 #and also: https://github.com/PlainLazy/crypto/blob/main/sm_watcher.ps1
 # With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa
 #For the various contributions in making this script awesome
