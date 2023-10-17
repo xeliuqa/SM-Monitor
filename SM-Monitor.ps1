@@ -1,4 +1,4 @@
-test# basedOn: https://discord.com/channels/623195163510046732/691261331382337586/1142174063293370498
+# basedOn: https://discord.com/channels/623195163510046732/691261331382337586/1142174063293370498
 #and also: https://github.com/PlainLazy/crypto/blob/main/sm_watcher.ps1
 # With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa
 #For the various contributions in making this script awesome
@@ -9,6 +9,8 @@ function main {
     $currentDate = Get-Date -Format HH:mm:ss
 
     $grpcurl = ".\grpcurl.exe"
+
+    $address = "sm1..."
     
 
     $list = @(
@@ -19,8 +21,8 @@ function main {
         #@{ info = "Node 5"; host = "localhost";  port = 9052; port2 = 9053; },
         @{ info = "Node 6"; host = "192.168.1.14";  port = 9062; port2 = 9063; },
         @{ info = "Node 7"; host = "localhost";  port = 8082; port2 = 8083; },
-        @{ info = "Test"; host = "192.168.1.14";  port = 9082; port2 = 9083; },
-        @{ info = "Smapp"; host = "localhost";  port = 9092; port2 = 9093; }
+        @{ info = "Test"; host = "192.168.1.14";  port = 9082; port2 = 9083; }
+        #@{ info = "Smapp"; host = "localhost";  port = 9092; port2 = 9093; }
    )
 
     # Colors: Black, Blue, Cyan, DarkBlue, DarkCyan, DarkGray, DarkGreen, DarkMagenta, DarkRed, DarkYellow, Gray, Green, Magenta, Red, White, Yellow
@@ -66,7 +68,9 @@ Clear-Host
                 $epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
             }
 
-            
+            $jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$address`" }, `"account_data_flags`": 4 } }"
+            $getBalance = ((Invoke-Expression ("$($grpcurl) --plaintext -d '$jsonPayload' $($node.host):$($node.port) spacemesh.v1.GlobalStateService.AccountDataQuery")) | ConvertFrom-Json) 2>$null
+            $myBalanace = [math]::round($getBalance.accountItem.accountWrapper.stateCurrent.balance.value / 1000000000,2)
                     
             $status = $null
             $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
@@ -180,11 +184,12 @@ Clear-Host
         }
 
         $object | ColorizeMyObject -ColumnRules $columnRules # You must "select" your columns/properties.  Otherwise, hidden properties will corrupt your view.
-
+        
         Clear-Host
         $object | Select-Object Info, SmesherID, Host, Port, Peers, SizeTiB, Synced, Layer, Top, Verified, Version, Smeshing | ColorizeMyObject -ColumnRules $columnRules
         Write-Host `n
-		Write-Host "-------------------------------- Network Info: ---------------------------------" -ForegroundColor Yellow
+		Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
+        Write-Host "   My Balance: " -ForegroundColor Cyan -nonewline; Write-Host $myBalanace -ForegroundColor white
 		Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch.number -ForegroundColor Green
 		Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $resultsNodeHighestATX.id.id) -ForegroundColor Green
         Write-Host "ATX Base64_ID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.id.id -ForegroundColor Green
