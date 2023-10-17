@@ -212,7 +212,6 @@ Clear-Host
             }
         }
     
-    
         #Refresh
         Write-Host `n                
 		Write-Host "Last refresh: " -ForegroundColor Yellow -nonewline; Write-Host "$currentDate" -ForegroundColor Green;
@@ -320,6 +319,4 @@ function ColorizeMyObject {
         }
     }
 }
-
-
 main
