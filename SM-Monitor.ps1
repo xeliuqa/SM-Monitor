@@ -6,25 +6,27 @@
 # get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 function main {
-    $currentDate = Get-Date -Format HH:mm:ss
-
+    Clear-Host
+    Write-Host "Loading ..." -NoNewline -ForegroundColor Cyan
     $grpcurl = ".\grpcurl.exe"
     
 
     $list = @(
-        #@{ info = "Node 1"; host = "localhost";  port = 9012; port2 = 9013; },
-        #@{ info = "Node 2"; host = "localhost";  port = 9022; port2 = 9023; },
-        #@{ info = "Node 3"; host = "localhost";  port = 9032; port2 = 9033; },
-        #@{ info = "Node 4"; host = "localhost";  port = 9042; port2 = 9043; },
-        #@{ info = "Node 5"; host = "localhost";  port = 9052; port2 = 9053; },
-        @{ info = "Node 6"; host = "192.168.1.14"; port = 9062; port2 = 9063; },
-        @{ info = "Node 7"; host = "localhost"; port = 8082; port2 = 8083; },
-        @{ info = "Test"; host = "192.168.1.14"; port = 9082; port2 = 9083; }
-        #@{ info = "Smapp"; host = "localhost";  port = 9092; port2 = 9093; }
+        @{ info = "Smapp"; host = "192.168.1.6"; port = 9092; port2 = 9093; }
+        @{ info = "smh11"; host = "192.168.1.6"; port = 9112; port2 = 9113; }
+        @{ info = "smh12"; host = "192.168.1.6"; port = 9122; port2 = 9123; }
+        @{ info = "smh21"; host = "192.168.1.7"; port = 9212; port2 = 9213; }
+        @{ info = "smh22"; host = "192.168.1.7"; port = 9222; port2 = 9223; }
+        @{ info = "smh31"; host = "192.168.1.8"; port = 9312; port2 = 9313; }
+        @{ info = "smh32"; host = "192.168.1.8"; port = 9322; port2 = 9323; }
     )
 
-    # Colors: Black, Blue, Cyan, DarkBlue, DarkCyan, DarkGray, DarkGreen, DarkMagenta, DarkRed, DarkYellow, Gray, Green, Magenta, Red, White, Yellow
+    $gitVersion = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/spacemeshos/go-spacemesh/releases/latest" 2>$null
+    if ($null -ne $gitVersion) {
+        $gitVersion = $gitVersion.tag_name
+    }
 
+    # Colors: Black, Blue, Cyan, DarkBlue, DarkCyan, DarkGray, DarkGreen, DarkMagenta, DarkRed, DarkYellow, Gray, Green, Magenta, Red, White, Yellow
     $columnRules = @(
         @{ Column = "Info"; Value = "*"; ForegroundColor = "Cyan"; BackgroundColor = "Black" },
         @{ Column = "SmesherID"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = "Black" },
@@ -38,24 +40,30 @@ function main {
         @{ Column = "Synced"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" },
         @{ Column = "Synced"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
         @{ Column = "Layer Top Verified"; Value = "*"; ForegroundColor = "White"; BackgroundColor = "Black" },
-        @{ Column = "Version"; Value = "0"; ForegroundColor = "White"; BackgroundColor = "Black" },
+        @{ Column = "Version"; Value = "*"; ForegroundColor = "Red"; BackgroundColor = "Black" },
+        @{ Column = "Version"; Value = $gitVersion; ForegroundColor = "Green"; BackgroundColor = "Black" },
         @{ Column = "Version"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
+        @{ Column = "Smeshing"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" },
-        @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
-        @{ Column = "Smeshing"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = "Black" }
-    
+        @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" }
     )
-    Clear-Host
+		
+    if ($null -eq $gitVersion) {
+        foreach ($rule in $ColumnRules) {
+            if (($rule.Column -eq "Version") -and ($rule.Value -eq "*")) {
+                $rule.ForegroundColor = "White"
+                break
+            }
+        }
+    }
+    
     while (1) {
-
 
         $object = @()
         $resultsNodeHighestATX = $null
         $epoch = $null
 
-        #Write-Host `n
-        Write-Host "Loading ..." -NoNewline -ForegroundColor Cyan
         foreach ($node in $list) {
             Write-Host  " $($node.info)" -NoNewline -ForegroundColor Cyan
 
@@ -153,7 +161,8 @@ function main {
         Write-Host `n
         Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
         Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch.number -ForegroundColor Green
-        Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $resultsNodeHighestATX.id.id) -ForegroundColor Green
+        if ($null -ne $resultsNodeHighestATX) {
+        Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $resultsNodeHighestATX.id.id) -ForegroundColor Green}
         Write-Host "ATX Base64_ID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.id.id -ForegroundColor Green
         #Write-Host "        Layer: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.layer.number -ForegroundColor Green
         #Write-Host "     NumUnits: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.numUnits -ForegroundColor Green
@@ -163,9 +172,8 @@ function main {
         Write-Host `n
     
         #Version Check
-        $gitVersion = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/spacemeshos/go-spacemesh/releases/latest" 2>$null
         if ($null -ne $gitVersion) {
-            $currentVersion = $gitVersion.tag_name -replace "[^.0-9]"
+            $currentVersion = $gitVersion -replace "[^.0-9]"
             Write-Host "Github Go-Spacemesh version: $($currentVersion)" -ForegroundColor Green
             foreach ($node in ($object | Where-Object { $_.synced -notmatch "Offline" })) {
                 $node.version = $node.version -replace "[^.0-9]"
@@ -179,6 +187,7 @@ function main {
             Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Offline!" -ForegroundColor DarkYellow
         }
 
+        $currentDate = Get-Date -Format HH:mm:ss
         #Refresh
         Write-Host `n                
         Write-Host "Last refresh: " -ForegroundColor Yellow -nonewline; Write-Host "$currentDate" -ForegroundColor Green;
@@ -193,12 +202,8 @@ function main {
         [Console]::SetCursorPosition($originalPosition.X, $originalPosition.Y)
         [System.Console]::Write($clearmsg) 
         [Console]::SetCursorPosition($originalPosition.X, $originalPosition.Y)
-
+        Write-Host "Loading ..." -NoNewline -ForegroundColor Cyan
     }
-}
-
-function Get-PSVersion {
-    if (test-path variable:psversiontable) { $psversiontable.psversion } else { [version]"1.0.0.0" }
 }
 
 function B64_to_Hex {
@@ -270,7 +275,7 @@ function ColorizeMyObject {
                             if ($rule.BackgroundColor) {
                                 $backgroundColor = $rule.BackgroundColor
                             }
-                            break
+                            #break
                         }
                     }
                 }
