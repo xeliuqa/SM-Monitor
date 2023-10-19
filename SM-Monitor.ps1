@@ -51,31 +51,35 @@ function main {
 Clear-Host
     while (1) {
 
-        Clear-Host		
+	
         $object=@()
         $resultsNodeHighestATX = $null
         $epoch = $null
     
-        Write-Host `n
-        Write-Host -NoNewline "Loading ..."
+        #Write-Host `n
+        Write-Host "Loading ..." -NoNewline -ForegroundColor Cyan
             foreach ($node in $list) {
-            Write-Host  -NoNewline " $($node.info) "
+            Write-Host  " $($node.info)" -NoNewline -ForegroundColor Cyan
     
-            if ($null -eq $resultsNodeHighestATX){
+            if ($resultsNodeHighestATX -eq $null){
                 $resultsNodeHighestATX = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
             }
-            if ($null -eq $epoch){
+            if ($epoch -eq $null){
                 $epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
             }
-
-            $jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$address`" }, `"account_data_flags`": 4 } }"
-            $getBalance = ((Invoke-Expression ("$($grpcurl) --plaintext -d '$jsonPayload' $($node.host):$($node.port) spacemesh.v1.GlobalStateService.AccountDataQuery")) | ConvertFrom-Json) 2>$null
-            $myBalanace = [math]::round($getBalance.accountItem.accountWrapper.stateCurrent.balance.value / 1000000000,2)
+			
+#			$psVersion = (Get-PSVersion)
+#			if ($psVersion.Major -ge 7) {
+#				$jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$address`" }, `"account_data_flags`": 4 } }"
+#				$getBalance = ((Invoke-Expression ("$($grpcurl) --plaintext -d '$jsonPayload' $($node.host):$($node.port) spacemesh.v1.GlobalStateService.AccountDataQuery")) | ConvertFrom-Json) 2>$null
+#				$myBalance = [math]::round($getBalance.accountItem.accountWrapper.stateCurrent.balance.value / 1000000000,2)
+#			}
                     
             $status = $null
             $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
+			Write-Host -NoNewline "." -ForegroundColor Cyan
 
-                if ($null -ne $status){
+                if ($status -ne $null){
 				$node.online = "True"
 					if ($status.isSynced){
 				$node.synced = "True"} else {$node.synced = "False"}
@@ -84,87 +88,52 @@ Clear-Host
 				$node.topLayer = $status.topLayer.number
 				$node.verifiedLayer = $status.verifiedLayer.number
 				}else {
-					$node.online = "False"
+					$node.online = ""
 					$node.smeshing = "Offline"
 					$node.synced = "Offline"}
 
-				if ($node.online -eq "True"){
+				if ($node.online){
 			$version = $null
             $version = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Version")) | ConvertFrom-Json).versionString.value  2>$null
-			if ($null -ne $version){
+			Write-Host -NoNewline "." -ForegroundColor Cyan
+			if ($version -ne $null){
 			$node.version = $version}
 
-			#if (($node.host -eq "localhost") -Or ($node.host -ne "localhost" -And $node.port2 -ne 9093)){
+			#Uncomment next line if your Smapp using standard configuration -- 1 of 2
+			#if (($node.host -eq "localhost") -Or ($node.host -ne "localhost" -And $node.port2 -ne 9093)){ 
                 $smeshing = $null
                 $smeshing = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.IsSmeshing")) | ConvertFrom-Json)	2>$null
     
-                if ($null -ne $smeshing)
+                if ($smeshing -ne $null)
                         {$node.smeshing = "True"} else {$node.smeshing = "False"}
     
                         $state = $null
                         $state = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus")) | ConvertFrom-Json).status 2>$null
+			Write-Host -NoNewline "." -ForegroundColor Cyan
             
-                    if ($null -ne $state) {
-                        $node.numUnits = $state.opts.numUnits}
+                    if ($state -ne $null) {
+                        $node.numUnits = $state.opts.numUnits
+						
+						if ($state.state -eq "STATE_IN_PROGRESS") {
+							$percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 1)
+							$node.smeshing = "$($percent)%"
+						}
+					}
             
                         $publicKey = $null
                         $publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID")) | ConvertFrom-Json).publicKey 2>$null
             
             
                         #Convert SmesherID to HEX
-                        if ($null -ne $publicKey) {
+                        if ($publicKey -ne $null) {
                         $publicKey2 = (B64_to_Hex -id2convert $publicKey)
                         #Extract last 5 digits from SmesherID
                         $node.key = $publicKey2.substring($publicKey2.length -5, 5)
                         }
-                    }
+					#Uncomment next line if your Smapp using standard configuration -- 2 of 2
+                    #}  
                 }
-                    $node = $list[0]
-   
-                    foreach ($node in $list) {
-                        Write-Host "Loading $($node.info) Ports ..."
-                        $currentDate = Get-Date -Format HH:mm:ss
-                        $status = ((Invoke-Expression (
-                            "$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Status"
-                        )) | ConvertFrom-Json).status  2>$null
-                        $version = ((Invoke-Expression (
-                            "$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Version "
-                        )) | ConvertFrom-Json).versionString.value -replace "[^.0-9]" 2>$null
-                        if (($node.host -eq "localhost") -Or ($node.host -ne "localhost" -And $node.port2)){
-                            $smeshing = ((Invoke-Expression (
-                                "$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.IsSmeshing"
-                            )) | ConvertFrom-Json) 2>$null
-                
-                            $publicKey = $null
-                            $publicKey = ((Invoke-Expression (
-                                "$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID"
-                            )) | ConvertFrom-Json).publicKey 2>$null
-                            $state = ((Invoke-Expression (
-                            "$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus"
-                            )) | ConvertFrom-Json).status 2>$null
-                    
-                            #Convert SmesherID to HEX
-                            if ($null -ne $publicKey) {
-                            $publicKey2 = (B64_to_Hex -id2convert $publicKey)
-                            #Extract last 5 digits from SmesherID
-                            $node.key = $publicKey2.substring($publicKey2.length -5, 5)
-                            }
-                            
-                            if ($null -eq $smeshing.isSmeshing){
-                                $smeshing = "False"} else {$smeshing = "True"}
-                            
-                            if ($null -eq $status.isSynced){
-                                $node.synced = "False"} else {$node.synced = "True"}
-
-                            if ($state.state -eq "STATE_IN_PROGRESS") {
-                                $percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 1)
-                                    $smeshing = "$($percent)%"
-                            }
-                            if ($null -eq $status.connectedPeers){
-                                ($node.version = "Offline"), ($smeshing = "Offline"), ($node.synced = "Offline")
-                            }
-                        }
-    
+                           
                 $o = [PSCustomObject]@{
                     Info = $node.info
                     SmesherID = $node.key
@@ -178,18 +147,17 @@ Clear-Host
                     Top = $node.topLayer
                     Verified = $node.verifiedLayer
                     Version = $node.version
-                    Smeshing = $smeshing
+                    Smeshing = $node.smeshing
                 } 
             $object += $o
         }
 
-        $object | ColorizeMyObject -ColumnRules $columnRules # You must "select" your columns/properties.  Otherwise, hidden properties will corrupt your view.
-        
         Clear-Host
-        $object | Select-Object Info, SmesherID, Host, Port, Peers, SizeTiB, Synced, Layer, Top, Verified, Version, Smeshing | ColorizeMyObject -ColumnRules $columnRules
+        $object | Select-Object Info, SmesherID, Host, Port, Peers, SU, SizeTiB, Synced, Layer, Top, Verified, Version, Smeshing | ColorizeMyObject -ColumnRules $columnRules
         Write-Host `n
 		Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
-        Write-Host "   My Balance: " -ForegroundColor Cyan -nonewline; Write-Host $myBalanace -ForegroundColor white
+		if ($myBalance -ne $null) {
+        Write-Host "   My Balance: " -ForegroundColor Cyan -nonewline; Write-Host $myBalance -ForegroundColor white}
 		Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch.number -ForegroundColor Green
 		Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $resultsNodeHighestATX.id.id) -ForegroundColor Green
         Write-Host "ATX Base64_ID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.id.id -ForegroundColor Green
@@ -198,39 +166,46 @@ Clear-Host
         #Write-Host "      PrevATX: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.prevAtx.id -ForegroundColor Green
         #Write-Host "    SmesherID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.smesherId.id -ForegroundColor Green
         Write-Host "--------------------------------------------------------------------------------" -ForegroundColor Yellow
-		#Version Check
         Write-Host `n
-        #Get Current Version
+		
+		#Version Check
         $gitVersion = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/spacemeshos/go-spacemesh/releases/latest" 2>$null
-        if ($null -ne $gitVersion){
+        if ($gitVersion -ne $null){
             $currentVersion = $gitVersion.tag_name  -replace "[^.0-9]"
             Write-Host "Github Go-Spacemesh version: $($currentVersion)" -ForegroundColor Green
+			 foreach ($node in ($object | Where-Object {$_.synced -notmatch "Offline"})) {
+				$node.version = $node.version -replace "[^.0-9]"
+				if ([version]$node.version -lt [version]$currentVersion) {
+					Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Outdated!" -ForegroundColor DarkYellow
+					break
+				}
+			}
         }
-
-        if ($object.Version -match "Offline") {
+		 if ($object.synced -match "Offline") {
             Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Offline!" -ForegroundColor DarkYellow
         }
 
-        foreach ($node in ($object | Where-Object {$_.version -notmatch "Offline"})) {
-            if (($node.version -replace "[^.0-9]") -lt ($currentVersion)) {
-                Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Outdated!" -ForegroundColor DarkYellow
-            }
-        }
-    
         #Refresh
         Write-Host `n                
 		Write-Host "Last refresh: " -ForegroundColor Yellow -nonewline; Write-Host "$currentDate" -ForegroundColor Green;
-		Write-host -NoNewline " "
 
         #Loading
+		$originalPosition = $host.UI.RawUI.CursorPosition
         for ($s=0;$s -le 60; $s++) {
             Write-Host -NoNewline "." -ForegroundColor Cyan
-           
             Start-Sleep 5
-            }	
+		}	
+		$clearmsg = " " * ([System.Console]::WindowWidth - 1)  
+		[Console]::SetCursorPosition($originalPosition.X,$originalPosition.Y)
+		[System.Console]::Write($clearmsg) 
+		[Console]::SetCursorPosition($originalPosition.X,$originalPosition.Y)
+
         }
     }
 
+function Get-PSVersion {
+    if (test-path variable:psversiontable) {$psversiontable.psversion} else {[version]"1.0.0.0"}
+}
 
 function B64_to_Hex{
     param (
