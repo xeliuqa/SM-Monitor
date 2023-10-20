@@ -185,6 +185,8 @@ function main {
         }
         if ($object.synced -match "Offline") {
             Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Offline!" -ForegroundColor DarkYellow
+            Write-Host "Email sent..." -ForegroundColor DarkYellow
+            Send-MailMessage
         }
 
         $currentDate = Get-Date -Format HH:mm:ss
@@ -204,6 +206,37 @@ function main {
         [Console]::SetCursorPosition($originalPosition.X, $originalPosition.Y)
         Write-Host "Loading ..." -NoNewline -ForegroundColor Cyan
     }
+}
+function Send-MailMessage()
+{
+	$From = "001smmonitor@gmail.com"
+	$To = "my@email.com"
+	$Subject = "Node offline"
+	$Body = "Warning, some of your nodes are offline!
+    Please verify your nodes to avoid missing rewards/
+    
+    From SM-Monitor"
+
+	# Define the SMTP server details
+	$SMTPServer = "smtp.gmail.com"
+	$SMTPPort = 587
+	$SMTPUsername = "001smmonitor@gmail.com"
+	$SMTPPassword = "uehd zqix qrbh gejb"
+
+	# Create a new email object
+	$Email = New-Object System.Net.Mail.MailMessage
+	$Email.From = $From
+	$Email.To.Add($To)
+	$Email.Subject = $Subject
+	$Email.Body = $Body
+	# Uncomment below to send HTML formatted email
+	#$Email.IsBodyHTML = $true
+
+	# Create an SMTP client object and send the email
+	$SMTPClient = New-Object System.Net.Mail.SmtpClient($SMTPServer, $SMTPPort)
+	$SMTPClient.EnableSsl = $true
+	$SMTPClient.Credentials = New-Object System.Net.NetworkCredential($SMTPUsername, $SMTPPassword)
+	$SMTPClient.Send($Email)
 }
 
 function B64_to_Hex {
