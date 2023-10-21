@@ -9,16 +9,18 @@ function main {
     Clear-Host
     Write-Host "Loading ..." -NoNewline -ForegroundColor Cyan
     $grpcurl = ".\grpcurl.exe"
+    #Set your Email for notifications
+    $myEmail = "my@email.com"
     
 
     $list = @(
         @{ info = "Smapp"; host = "192.168.1.6"; port = 9092; port2 = 9093; }
         @{ info = "smh11"; host = "192.168.1.6"; port = 9112; port2 = 9113; }
-        @{ info = "smh12"; host = "192.168.1.6"; port = 9122; port2 = 9123; }
-        @{ info = "smh21"; host = "192.168.1.7"; port = 9212; port2 = 9213; }
-        @{ info = "smh22"; host = "192.168.1.7"; port = 9222; port2 = 9223; }
-        @{ info = "smh31"; host = "192.168.1.8"; port = 9312; port2 = 9313; }
-        @{ info = "smh32"; host = "192.168.1.8"; port = 9322; port2 = 9323; }
+        #@{ info = "smh12"; host = "192.168.1.6"; port = 9122; port2 = 9123; }
+        #@{ info = "smh21"; host = "192.168.1.7"; port = 9212; port2 = 9213; }
+        #@{ info = "smh22"; host = "192.168.1.7"; port = 9222; port2 = 9223; }
+        #@{ info = "smh31"; host = "192.168.1.8"; port = 9312; port2 = 9313; }
+        #@{ info = "smh32"; host = "192.168.1.8"; port = 9322; port2 = 9323; }
     )
 
     $gitVersion = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/spacemeshos/go-spacemesh/releases/latest" 2>$null
@@ -162,7 +164,8 @@ function main {
         Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
         Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch.number -ForegroundColor Green
         if ($null -ne $resultsNodeHighestATX) {
-        Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $resultsNodeHighestATX.id.id) -ForegroundColor Green}
+            Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $resultsNodeHighestATX.id.id) -ForegroundColor Green
+        }
         Write-Host "ATX Base64_ID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.id.id -ForegroundColor Green
         #Write-Host "        Layer: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.layer.number -ForegroundColor Green
         #Write-Host "     NumUnits: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.numUnits -ForegroundColor Green
@@ -170,6 +173,7 @@ function main {
         #Write-Host "    SmesherID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.smesherId.id -ForegroundColor Green
         Write-Host "--------------------------------------------------------------------------------" -ForegroundColor Yellow
         Write-Host `n
+        $newline = "`r`n"
     
         #Version Check
         if ($null -ne $gitVersion) {
@@ -185,8 +189,41 @@ function main {
         }
         if ($object.synced -match "Offline") {
             Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Offline!" -ForegroundColor DarkYellow
+            Write-Host "Email sent..." -ForegroundColor DarkYellow
+            [array]$offlineNodes += $object | Where-Object { $_.synced -match "Offline" }
+            $From = "001smmonitor@gmail.com"
+            $To = $myEmail
+            $Subject = "Node offline"
+            $Body = "Warning, some nodes are offline!"
+            foreach ($item in $offlineNodes) {
+                $Body = $body + $newLine + $item.Info + " " + $item.Host + " " + $item.Smeshing 
+            }
+    
+            # Define the SMTP server details
+            $SMTPServer = "smtp.gmail.com"
+            $SMTPPort = 587
+            $SMTPUsername = "001smmonitor@gmail.com"
+            $SMTPPassword = "uehd zqix qrbh gejb"
+
+            # Create a new email object
+            $Email = New-Object System.Net.Mail.MailMessage
+            $Email.From = $From
+            $Email.To.Add($To)
+            $Email.Subject = $Subject
+            $Email.Body = $Body
+            # Uncomment below to send HTML formatted email
+            #$Email.IsBodyHTML = $true
+
+            # Create an SMTP client object and send the email
+            $SMTPClient = New-Object System.Net.Mail.SmtpClient($SMTPServer, $SMTPPort)
+            $SMTPClient.EnableSsl = $true
+            $SMTPClient.Credentials = New-Object System.Net.NetworkCredential($SMTPUsername, $SMTPPassword)
+            $SMTPClient.Send($Email)
+            
         }
 
+        
+        
         $currentDate = Get-Date -Format HH:mm:ss
         #Refresh
         Write-Host `n                
@@ -205,6 +242,8 @@ function main {
         Write-Host "Loading ..." -NoNewline -ForegroundColor Cyan
     }
 }
+
+
 
 function B64_to_Hex {
     param (
