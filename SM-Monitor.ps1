@@ -174,7 +174,7 @@ function main {
         #Version Check
         if ($null -ne $gitVersion) {
             $currentVersion = $gitVersion -replace "[^.0-9]"
-            Write-Host "Github Go-Spacemesh version: $($currentVersion)" -ForegroundColor Green
+            Write-Host "Github Go-Spacemesh version: $($gitVersion)" -ForegroundColor Green
             foreach ($node in ($object | Where-Object { $_.synced -notmatch "Offline" })) {
                 $node.version = $node.version -replace "[^.0-9]"
                 if ([version]$node.version -lt [version]$currentVersion) {
