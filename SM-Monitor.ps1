@@ -9,10 +9,12 @@ function main {
     Clear-Host
     Write-Host "Loading ..." -NoNewline -ForegroundColor Cyan
     $grpcurl = ".\grpcurl.exe"
+
+    ############## Start Edit  ##############
     #Set your Email for notifications
+    $emailEnable = "True" #True to enable email notification, False to disable
     $myEmail = "my@email.com"
     
-
     $list = @(
         @{ info = "Smapp"; host = "192.168.1.6"; port = 9092; port2 = 9093; }
         @{ info = "smh11"; host = "192.168.1.6"; port = 9112; port2 = 9113; }
@@ -22,6 +24,7 @@ function main {
         #@{ info = "smh31"; host = "192.168.1.8"; port = 9312; port2 = 9313; }
         #@{ info = "smh32"; host = "192.168.1.8"; port = 9322; port2 = 9323; }
     )
+    ############## Finish Edit ##############
 
     $gitVersion = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/spacemeshos/go-spacemesh/releases/latest" 2>$null
     if ($null -ne $gitVersion) {
@@ -189,6 +192,7 @@ function main {
         }
         if ($object.synced -match "Offline") {
             Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Offline!" -ForegroundColor DarkYellow
+            if ($emailEnable -eq "True"){
             Write-Host "Email sent..." -ForegroundColor DarkYellow
             [array]$offlineNodes += $object | Where-Object { $_.synced -match "Offline" }
             $From = "001smmonitor@gmail.com"
@@ -221,6 +225,7 @@ function main {
             $SMTPClient.Send($Email)
             
         }
+    }
 
         
         
