@@ -12,7 +12,7 @@ function main {
 
     ############## Start Edit  ##############
     #Set your Email for notifications
-    $emailEnable = "True" #True to enable email notification, False to disable
+    $emailEnable = "False" #True to enable email notification, False to disable
     $myEmail = "my@email.com"
     
     $list = @(
