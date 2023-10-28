@@ -18,7 +18,7 @@ function main {
     $list = @(
         @{ info = "Smapp"; host = "192.168.1.6"; port = 9092; port2 = 9093; }
         @{ info = "smh11"; host = "192.168.1.6"; port = 9112; port2 = 9113; }
-        #@{ info = "smh12"; host = "192.168.1.6"; port = 9122; port2 = 9123; }
+        #@{ info = "smh12"; host = "192.168.1.10"; port = 9122; port2 = 9123; }
         #@{ info = "smh21"; host = "192.168.1.7"; port = 9212; port2 = 9213; }
         #@{ info = "smh22"; host = "192.168.1.7"; port = 9222; port2 = 9223; }
         #@{ info = "smh31"; host = "192.168.1.8"; port = 9312; port2 = 9313; }
@@ -87,6 +87,7 @@ function main {
                 $node.online = "True"
                 if ($status.isSynced) {
                     $node.synced = "True"
+                    $node.emailsent = ""
                 }
                 else { $node.synced = "False" }
                 $node.connectedPeers = $status.connectedPeers
@@ -190,45 +191,62 @@ function main {
                 }
             }
         }
-        if ($object.synced -match "Offline") {
+		
+		
+        if ("Offline" -in $object.synced) {
             Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Offline!" -ForegroundColor DarkYellow
-            if ($emailEnable -eq "True"){
-            Write-Host "Email sent..." -ForegroundColor DarkYellow
-            [array]$offlineNodes += $object | Where-Object { $_.synced -match "Offline" }
-            $From = "001smmonitor@gmail.com"
-            $To = $myEmail
-            $Subject = "Node offline"
-            $Body = "Warning, some nodes are offline!"
-            foreach ($item in $offlineNodes) {
-                $Body = $body + $newLine + $item.Info + " " + $item.Host + " " + $item.Smeshing 
+            if ($emailEnable -eq "True" -And (isValidEmail($myEmail))) {
+                $Body = "Warning, some nodes are offline!"
+
+                foreach ($node in $list) {
+                    if (!$node.online) {
+                        $Body = $body + $newLine + $node.Info + " " + $node.Host + " " + $node.Smeshing 
+                        if (!$node.emailsent) {
+                            $OKtoSend = "True"
+                            $node.emailsent = "True"
+                        }
+                    }
+                }
+				
+                if ($OKtoSend) {
+                    $From = "001smmonitor@gmail.com"
+                    $To = $myEmail
+                    $Subject = "Your Spacemesh node is offline"
+			
+                    # Define the SMTP server details
+                    $SMTPServer = "smtp.gmail.com"
+                    $SMTPPort = 587
+                    $SMTPUsername = "001smmonitor@gmail.com"
+                    $SMTPPassword = "uehd zqix qrbh gejb"
+
+                    # Create a new email object
+                    $Email = New-Object System.Net.Mail.MailMessage
+                    $Email.From = $From
+                    $Email.To.Add($To)
+                    $Email.Subject = $Subject
+                    $Email.Body = $Body
+                    # Uncomment below to send HTML formatted email
+                    #$Email.IsBodyHTML = $true
+
+                    # Create an SMTP client object and send the email
+                    $SMTPClient = New-Object System.Net.Mail.SmtpClient($SMTPServer, $SMTPPort)
+                    $SMTPClient.EnableSsl = $true
+                    $SMTPClient.Credentials = New-Object System.Net.NetworkCredential($SMTPUsername, $SMTPPassword)
+			
+                    Try {
+                        $SMTPClient.Send($Email)
+                    }
+                    Catch {
+                        Write-Host "oops! SMTP error, please check your settings." -ForegroundColor DarkRed
+                    }
+                    Finally {
+                        Write-Host "Email sent..." -ForegroundColor DarkYellow
+                        $OKtoSend = ""
+                    }
+                }
             }
-    
-            # Define the SMTP server details
-            $SMTPServer = "smtp.gmail.com"
-            $SMTPPort = 587
-            $SMTPUsername = "001smmonitor@gmail.com"
-            $SMTPPassword = "uehd zqix qrbh gejb"
-
-            # Create a new email object
-            $Email = New-Object System.Net.Mail.MailMessage
-            $Email.From = $From
-            $Email.To.Add($To)
-            $Email.Subject = $Subject
-            $Email.Body = $Body
-            # Uncomment below to send HTML formatted email
-            #$Email.IsBodyHTML = $true
-
-            # Create an SMTP client object and send the email
-            $SMTPClient = New-Object System.Net.Mail.SmtpClient($SMTPServer, $SMTPPort)
-            $SMTPClient.EnableSsl = $true
-            $SMTPClient.Credentials = New-Object System.Net.NetworkCredential($SMTPUsername, $SMTPPassword)
-            $SMTPClient.Send($Email)
-            
         }
-    }
 
-        
-        
         $currentDate = Get-Date -Format HH:mm:ss
         #Refresh
         Write-Host `n                
@@ -248,7 +266,21 @@ function main {
     }
 }
 
+function IsValidEmail { 
+    param([string]$Email)
+    $Regex = '^([\w-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([\w-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$'
 
+    try {
+        $obj = [mailaddress]$Email
+        if ($obj.Address -match $Regex) {
+            return $True
+        }
+        return $False
+    }
+    catch {
+        return $False
+    } 
+}
 
 function B64_to_Hex {
     param (
