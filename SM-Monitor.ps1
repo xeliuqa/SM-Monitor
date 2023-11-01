@@ -9,40 +9,33 @@
     Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
     --------------------------------------------------------------------------------------------- #>
 
-$host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
+    $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
-# Statics
+############## General Settings  ##############
 $coinbaseAddressVisibility = "full" # "partial", "full", "hidden"
 $smhCoinsVisibility = $true # $true or $false.
 $fakeCoins = 0 # For screenshot purposes.  Set to 0 to pull real coins.  FAKE 'EM OUT!  (Example: 2352.24)
 $tableRefreshTimeSeconds = 60 # Time in seconds that the refresh happens.  Lower value = more grpc entries in logs.
 $logoDelay = 5
 $host.UI.RawUI.BackgroundColor = "Black" # Set the entire background to specific color
+$emailEnable = "False" # True to enable email notification, False to disable
+$myEmail = "my@email.com" # Set your Email for notifications
+$grpcurl = ".\grpcurl" # Set GRPCurl path if not in same folder
+
+$nodeList = @(
+    @{ info = "Node_01"; host = "192.168.1.xx"; port = 11001; port2 = 11002 },
+    @{ info = "Node_02"; host = "192.168.1.xx"; port = 12001; port2 = 12002 },
+    @{ info = "Node_03"; host = "192.168.1.xx"; port = 13001; port2 = 13002 },
+    @{ info = "Node_04"; host = "192.168.1.xx"; port = 14001; port2 = 14002 },
+    @{ info = "SMAPP_Server"; host = "192.168.1.xx"; port = 9092; port2 = 9093 },
+    @{ info = "SMAPP_Home"; host = "localhost"; port = 9092; port2 = 9093 }
+)    
+################ Finish Edit ###################
 
 function main {
+
     printSMMonitorLogo
     Write-Host "Querying nodes..." -NoNewline -ForegroundColor Cyan
-    $grpcurl = "grpcurl"
-
-    ############## Start Edit  ##############
-    #Set your Email for notifications
-    $emailEnable = "False" #True to enable email notification, False to disable
-    $myEmail = "my@email.com"
-    
-    $list = @(
-        @{ info = "Post_0001"; host = "192.168.1.220";  port = 11001; port2 = 11002 },
-        @{ info = "Post_0002"; host = "192.168.1.220";  port = 12001; port2 = 12002 },
-        @{ info = "Post_0003"; host = "192.168.1.220";  port = 13001; port2 = 13002 },
-        @{ info = "Post_0004"; host = "192.168.1.220";  port = 14001; port2 = 14002 },
-        @{ info = "Post_0005"; host = "192.168.1.220";  port = 15001; port2 = 15002 },
-        @{ info = "Post_0006"; host = "192.168.1.220";  port = 16001; port2 = 16002 },
-        @{ info = "Post_0007"; host = "192.168.1.220";  port = 17001; port2 = 17002 },
-        @{ info = "Post_0008"; host = "192.168.1.220";  port = 18001; port2 = 18002 },
-        @{ info = "Post_0009"; host = "192.168.1.220";  port = 19001; port2 = 19002 },
-        @{ info = "SMAPP_Server"; host = "192.168.1.220";  port = 9092; port2 = 9093 },
-        @{ info = "SMAPP_Home"; host = "localhost";  port = 9092; port2 = 9093 }
-   )
-    ############## Finish Edit ##############
 
     $gitVersion = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/spacemeshos/go-spacemesh/releases/latest" 2>$null
     if ($null -ne $gitVersion) {
@@ -71,7 +64,7 @@ function main {
         @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" }
     )
-		
+        
     if ($null -eq $gitVersion) {
         foreach ($rule in $ColumnRules) {
             if (($rule.Column -eq "Version") -and ($rule.Value -eq "*")) {
@@ -87,7 +80,7 @@ function main {
         $resultsNodeHighestATX = $null
         $epoch = $null
 
-        foreach ($node in $list) {
+        foreach ($node in $nodeList) {
             Write-Host  " $($node.info)" -NoNewline -ForegroundColor Cyan
 
             if ($null -eq $resultsNodeHighestATX) {
@@ -161,7 +154,7 @@ function main {
                 #Uncomment next line if your Smapp using standard configuration -- 2 of 2
                 #}  
             }
-                       
+                        
             $o = [PSCustomObject]@{
                 Info          = $node.info
                 SmesherID     = $node.key
@@ -181,7 +174,7 @@ function main {
             $object += $o
         }
 
-        # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
+        # Find all private nodes, then select the first in the nodeList.  Once we have this, we know that we have a good Online Local Private Node
         $privateOnlineNodes = ($object | where {$_.Synced -match "True" -and $_.Host -match "localhost"})[0]
 
         # If private nodes are found, determine the PS version and execute corresponding grpcurl if statement. Else skip.
@@ -247,13 +240,13 @@ function main {
                 }
             }
         }		
-		
+        
         if ("Offline" -in $object.synced) {
             Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Offline!" -ForegroundColor DarkYellow
             if ($emailEnable -eq "True" -And (isValidEmail($myEmail))) {
                 $Body = "Warning, some nodes are offline!"
 
-                foreach ($node in $list) {
+                foreach ($node in $nodeList) {
                     if (!$node.online) {
                         $Body = $body + $newLine + $node.Info + " " + $node.Host + " " + $node.Smeshing 
                         if (!$node.emailsent) {
@@ -262,12 +255,12 @@ function main {
                         }
                     }
                 }
-				
+                
                 if ($OKtoSend) {
                     $From = "001smmonitor@gmail.com"
                     $To = $myEmail
                     $Subject = "Your Spacemesh node is offline"
-			
+            
                     # Define the SMTP server details
                     $SMTPServer = "smtp.gmail.com"
                     $SMTPPort = 587
@@ -287,7 +280,7 @@ function main {
                     $SMTPClient = New-Object System.Net.Mail.SmtpClient($SMTPServer, $SMTPPort)
                     $SMTPClient.EnableSsl = $true
                     $SMTPClient.Credentials = New-Object System.Net.NetworkCredential($SMTPUsername, $SMTPPassword)
-			
+            
                     Try {
                         $SMTPClient.Send($Email)
                     }
@@ -323,7 +316,7 @@ function main {
         Write-Host "Querying nodes..." -NoNewline -ForegroundColor Cyan
     }
 }
-
+    
 function IsValidEmail { 
     param([string]$Email)
     $Regex = '^([\w-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([\w-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$'
@@ -361,7 +354,7 @@ function ColorizeMyObject {
         $InputObject,
 
         [Parameter(Mandatory = $true)]
-        [System.Collections.ArrayList]$ColumnRules
+        [System.Collections.ArraynodeList]$ColumnRules
     )
 
     begin {
@@ -434,7 +427,7 @@ function ColorizeMyObject {
         }
     }
 }
-
+    
 function printSMMonitorLogo {
     Clear-Host
     $foregroundColor = "Green"
@@ -456,9 +449,9 @@ function printSMMonitorLogo {
 /\   /        \/    Y    \ /_____/ /    Y    (  <_> )   |  \  ||  | (  <_> )  | \/  /\
 \/  /_______  /\____|__  /         \____|__  /\____/|___|  /__||__|  \____/|__|     \/
         \/         \/                  \/            \/                               
-          ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■         
-                                        https://github.com/xeliuqa/SM-Monitor         
-                                                     https://www.spacemesh.io         
+            _____________________________________________________________________     
+           /_____/_____/_____/_____/_____/  https://github.com/xeliuqa/SM-Monitor     
+                                                         https://www.spacemesh.io     
 "@
 
     $lines = $asciiArt -split "`n"
@@ -495,3 +488,4 @@ function printSMMonitorLogo {
 }
 
 main
+    
