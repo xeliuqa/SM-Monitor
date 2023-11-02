@@ -12,8 +12,6 @@
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 ############## General Settings  ##############
-    
-# Statics
 $coinbaseAddressVisibility = "partial" # "partial", "full", "hidden"
 $smhCoinsVisibility = $true # $true or $false.
 $fakeCoins = 0 # For screenshot purposes.  Set to 0 to pull real coins.  FAKE 'EM OUT!  (Example: 2352.24)
@@ -23,26 +21,22 @@ $host.UI.RawUI.BackgroundColor = "Black" # Set the entire background to specific
 $emailEnable = "False" #True to enable email notification, False to disable
 $myEmail = "my@email.com" #Set your Email for notifications
 $grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in same folder
-    
-############## Finish Edit ##############
+
+$nodeList = @(
+    @{ info = "Node_01"; host = "192.168.1.xx"; port = 11001; port2 = 11002 },
+    @{ info = "Node_02"; host = "192.168.1.xx"; port = 12001; port2 = 12002 },
+    @{ info = "Node_03"; host = "192.168.1.xx"; port = 13001; port2 = 13002 },
+    @{ info = "Node_04"; host = "192.168.1.xx"; port = 14001; port2 = 14002 },
+    @{ info = "SMAPP_Server"; host = "192.168.1.xx"; port = 9092; port2 = 9093 },
+    @{ info = "SMAPP_Home"; host = "localhost"; port = 9092; port2 = 9093 }
+)
+################ Settings Finish ###############
+
 function main {
     printSMMonitorLogo
-    Write-Host "Querying nodes..." -NoNewline -ForegroundColor Cyan
-        
-        
-    ############## Node Edit ################
-    $nodeList = @(
-        @{ info = "Node_01"; host = "192.168.1.xx"; port = 11001; port2 = 11002 },
-        @{ info = "Node_02"; host = "192.168.1.xx"; port = 12001; port2 = 12002 },
-        @{ info = "Node_03"; host = "192.168.1.xx"; port = 13001; port2 = 13002 },
-        @{ info = "Node_04"; host = "192.168.1.xx"; port = 14001; port2 = 14002 },
-        @{ info = "SMAPP_Server"; host = "192.168.1.xx"; port = 9092; port2 = 9093 },
-        @{ info = "SMAPP_Home"; host = "localhost"; port = 9092; port2 = 9093 }
-            
-    )
-    ############## Finish Edit ##############
-        
+    Write-Host "Querying nodes..." -NoNewline -ForegroundColor Cyan       
     $gitVersion = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/spacemeshos/go-spacemesh/releases/latest" 2>$null
+
     if ($null -ne $gitVersion) {
         $gitVersion = $gitVersion.tag_name
     }
@@ -461,7 +455,6 @@ function printSMMonitorLogo {
                    /_____/_____/_____/_____/_____/  https://github.com/xeliuqa/SM-Monitor     
                                                                  https://www.spacemesh.io     
 "@
-    
     
     $lines = $asciiArt -split "`n"
                                                          
