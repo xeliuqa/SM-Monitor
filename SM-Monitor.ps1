@@ -9,14 +9,14 @@
     Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
     --------------------------------------------------------------------------------------------- #>
 
-    $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
+$host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 ############## General Settings  ##############
-$coinbaseAddressVisibility = "full" # "partial", "full", "hidden"
+$coinbaseAddressVisibility = "partial" # "partial", "full", "hidden"
 $smhCoinsVisibility = $true # $true or $false.
 $fakeCoins = 0 # For screenshot purposes.  Set to 0 to pull real coins.  FAKE 'EM OUT!  (Example: 2352.24)
-$tableRefreshTimeSeconds = 60 # Time in seconds that the refresh happens.  Lower value = more grpc entries in logs.
-$logoDelay = 5
+$tableRefreshTimeSeconds = 300 # Time in seconds that the refresh happens.  Lower value = more grpc entries in logs.
+$logoDelay = 3
 $host.UI.RawUI.BackgroundColor = "Black" # Set the entire background to specific color
 $emailEnable = "False" # True to enable email notification, False to disable
 $myEmail = "my@email.com" # Set your Email for notifications
@@ -84,7 +84,7 @@ function main {
             Write-Host  " $($node.info)" -NoNewline -ForegroundColor Cyan
 
             if ($null -eq $resultsNodeHighestATX) {
-                $resultsNodeHighestATX = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
+                $resultsNodeHighestATX = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 10 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
             }
             if ($null -eq $epoch) {
                 $epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
@@ -156,26 +156,26 @@ function main {
             }
                         
             $o = [PSCustomObject]@{
-                Info          = $node.info
-                SmesherID     = $node.key
-                Host          = $node.host
-                Port          = $node.port
-                PortPrivate   = $node.port2
-                Peers         = $node.connectedPeers
-                SU            = $node.numUnits
-                SizeTiB       = $node.numUnits * 64 * 0.001
-                Synced        = $node.synced
-                Layer         = $node.syncedLayer
-                Top           = $node.topLayer
-                Verified      = $node.verifiedLayer
-                Version       = $node.version
-                Smeshing      = $node.smeshing
+                Info        = $node.info
+                SmesherID   = $node.key
+                Host        = $node.host
+                Port        = $node.port
+                PortPrivate = $node.port2
+                Peers       = $node.connectedPeers
+                SU          = $node.numUnits
+                SizeTiB     = $node.numUnits * 64 * 0.001
+                Synced      = $node.synced
+                Layer       = $node.syncedLayer
+                Top         = $node.topLayer
+                Verified    = $node.verifiedLayer
+                Version     = $node.version
+                Smeshing    = $node.smeshing
             } 
             $object += $o
         }
 
         # Find all private nodes, then select the first in the nodeList.  Once we have this, we know that we have a good Online Local Private Node
-        $privateOnlineNodes = ($object | where {$_.Synced -match "True" -and $_.Host -match "localhost"})[0]
+        $privateOnlineNodes = ($object | Where-Object { $_.Synced -match "True" -and $_.Host -match "localhost" })[0]
 
         # If private nodes are found, determine the PS version and execute corresponding grpcurl if statement. Else skip.
         if ($privateOnlineNodes.Info.count -gt 0) {
@@ -185,24 +185,27 @@ function main {
                 $balance = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' $($privateOnlineNodes.Host):$($privateOnlineNodes.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value
                 $balanceSMH = [string]([math]::Round($balance / 1000000000, 3)) + " SMH"
                 $coinbase = "($coinbase)" 
-                if ($fakeCoins -ne 0) {[string]$balanceSMH = "$($fakeCoins) SMH"}
-            } elseif ($PSVersionTable.PSVersion.Major -eq 5) {
+                if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
+            }
+            elseif ($PSVersionTable.PSVersion.Major -eq 5) {
                 $coinbase = (Invoke-Expression "$grpcurl --plaintext $($privateOnlineNodes.Host):$($privateOnlineNodes.PortPrivate) spacemesh.v1.SmesherService.Coinbase" | ConvertFrom-Json).accountId.address
-                $command = {& $grpcurl -d '{\"filter\":{\"account_id\":{\"address\":\"$coinbase\"},\"account_data_flags\":4}}' -plaintext localhost:9092 spacemesh.v1.GlobalStateService.AccountDataQuery}
+                $command = { & $grpcurl -d '{\"filter\":{\"account_id\":{\"address\":\"$coinbase\"},\"account_data_flags\":4}}' -plaintext localhost:9092 spacemesh.v1.GlobalStateService.AccountDataQuery }
                 $command = $command -replace '\$coinbase', $coinbase
                 $balance = (Invoke-Expression $command | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value
                 $balanceSMH = [string]([math]::Round($balance / 1000000000, 3)) + " SMH"
                 $coinbase = "($coinbase)" 
-                if ($fakeCoins -ne 0) {[string]$balanceSMH = "$($fakeCoins) SMH"}
+                if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
             }
-        } else {
+        }
+        else {
             $coinbase = ""
             $balanceSMH = "You must have at least one synced private 'localhost' node defined..."
         }
 
         if ($coinbaseAddressVisibility -eq "partial") {
             $coinbase = '(' + $($coinbase).Substring($($coinbase).IndexOf(")") - 4, 4) + ')'
-        } elseif ($coinbaseAddressVisibility -eq "hidden") {
+        }
+        elseif ($coinbaseAddressVisibility -eq "hidden") {
             $coinbase = "(----)"
         }
 
@@ -463,7 +466,8 @@ function printSMMonitorLogo {
             $host.UI.RawUI.CursorPosition = $CursorPosition
             if ($char -eq ' ') {
                 Write-Host $char -NoNewline
-            } else {
+            }
+            else {
                 Write-Host $char -NoNewline -ForegroundColor $highlightColor
             }
             Start-Sleep -Milliseconds $charDelay
@@ -474,7 +478,8 @@ function printSMMonitorLogo {
             $host.UI.RawUI.CursorPosition = $CursorPosition
             if ($char -eq ' ') {
                 Write-Host $char -NoNewline
-            } else {
+            }
+            else {
                 Write-Host $char -NoNewline -ForegroundColor $foregroundColor
             }
         }
@@ -488,4 +493,3 @@ function printSMMonitorLogo {
 }
 
 main
-    
