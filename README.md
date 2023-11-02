@@ -1,10 +1,12 @@
 # SM-Monitor
 Simple monitor for Spacemesh nodes<br>
 
-This is the work of 4 people<br>
-Sakki - Jonh - Stizerg - PLainLazy - Shanyaa
+With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa<br>
+for the various contributions in making this script awesome
 <br>
-<img src="https://github.com/xeliuqa/SM-Monitor/blob/main/sm-monitor.png" height="300px" width="500px"/>
+`Click for video`<br>
+[![IMAGE ALT TEXT HERE](https://github.com/xeliuqa/SM-Monitor/blob/main/SM-Monitor.gif)](https://youtu.be/kSJo18gsKMQ )
+<br>
 
 To use this monitor you need GRPCurl
 Simply use with any GRPCurl software. <br> 
@@ -19,11 +21,6 @@ config-mainnet.json for go-spacemesh<br><br>
 Script supports as many nodes as you want.<br>
 Use "#" to comment out the options you don't need<br><br>
 
-Please note that to access Nodes remotely you need to change config to<br>
-"grpc-private-listener": "0.0.0.0:9083",<br><br>
-
-Monitor will refresh every 5 minutes.<br>
-Since each layer lasts 5 minutes i don't see the need for faster refresh<br>
-However time can be edited at line 94, using seconds x 5<br>
-Current 60 seconds x 5s delay = 300 seconds = 5 minutes
+Please note that to access Nodes remotely you need to change config.mainnet.json to<br>
+`grpc-private-listener": "0.0.0.0:9093`<br><br>
 
