@@ -61,7 +61,8 @@ function main {
         @{ Column = "Smeshing"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" },
-        @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" }
+        @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
+        @{ Column = "RL"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = "Black" }
     )
                 
     if ($null -eq $gitVersion) {
@@ -118,6 +119,21 @@ function main {
                 if ($null -ne $version) {
                     $node.version = $version
                 }
+
+                $rewards = $null
+                $eventstream = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.AdminService.EventsStream")) 2>$null
+                Write-Output '[' > log.json
+                Write-Output $eventstream >> log.json
+                Write-Output ']' >> log.json
+                $FilePath = ".\log.json"
+                (Get-Content -Raw -Path $FilePath) -replace '\r\n','' | Set-Content -Path $FilePath
+                (Get-Content -Raw -Path $FilePath) -replace '}{','},{' | Set-Content -Path $FilePath
+                $jsonObject = Get-Content -Path $FilePath | Out-String | ConvertFrom-JSON
+                        $rewards = (($jsonObject.eligibilities | Where-Object {$_.epoch -eq $epoch.number}).eligibilities | Measure-Object).Count
+                if ($null -ne $rewards){
+                    $node.rewards = $rewards
+                }
+                
         
                 #Uncomment next line if your Smapp using standard configuration -- 1 of 2
                 #if (($node.host -eq "localhost") -Or ($node.host -ne "localhost" -And $node.port2 -ne 9093)){ 
@@ -169,8 +185,10 @@ function main {
                 Verified    = $node.verifiedLayer
                 Version     = $node.version
                 Smeshing    = $node.smeshing
+                RWD          = $rewards
             } 
             $object += $o
+            $totalLayers = $totalLayers + $node.rewards
         }
         
         # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
@@ -213,7 +231,7 @@ function main {
         }
         
         Clear-Host
-        $object | Select-Object Info, SmesherID, Host, Port, Peers, SU, SizeTiB, Synced, Layer, Top, Verified, Version, Smeshing | ColorizeMyObject -ColumnRules $columnRules
+        $object | Select-Object Info, SmesherID, Host, Port, Peers, SU, SizeTiB, Synced, Layer, Top, Verified, Version, Smeshing, RWD | ColorizeMyObject -ColumnRules $columnRules
         Write-Host `n
         Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
         Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch.number -ForegroundColor Green
@@ -221,6 +239,7 @@ function main {
             Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $resultsNodeHighestATX.id.id) -ForegroundColor Green
         }
         Write-Host "ATX Base64_ID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.id.id -ForegroundColor Green
+        Write-Host " Total Layers: " -ForegroundColor Cyan -nonewline; Write-Host ($totalLayers) -ForegroundColor Yellow -nonewline; Write-Host " Layers"
         Write-Host "      Balance: " -ForegroundColor Cyan -NoNewline; Write-Host "$balanceSMH" -ForegroundColor White -NoNewline; Write-Host " $($coinbase)" -ForegroundColor Cyan
         #Write-Host "        Layer: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.layer.number -ForegroundColor Green
         #Write-Host "     NumUnits: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.numUnits -ForegroundColor Green
