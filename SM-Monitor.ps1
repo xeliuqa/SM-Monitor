@@ -79,6 +79,7 @@ function main {
         $object = @()
         $resultsNodeHighestATX = $null
         $epoch = $null
+        $totalLayers = $null
         
         foreach ($node in $nodeList) {
             Write-Host  " $($node.info)" -NoNewline -ForegroundColor Cyan
