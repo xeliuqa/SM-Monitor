@@ -81,6 +81,7 @@ function main {
         $epoch = $null
         $totalLayers = $null
         $avaiableLayers = $null
+        Clear-Content ".\RewardsTrackApp.json"
         
         foreach ($node in $nodeList) {
             Write-Host  " $($node.info)" -NoNewline -ForegroundColor Cyan
@@ -192,11 +193,15 @@ function main {
                 Version     = $node.version
                 Smeshing    = $node.smeshing
                 RWD         = $node.rewards
+                
             } 
             $object += $o
             $totalLayers = $totalLayers + $node.rewards
             $avaiableLayers = $avaiableLayers + $node.layers
-            Write-Output $node.keyFull $avaiableLayers | ConvertTo-Json -depth 100 | Out-File -FilePath RewardsTrackApp.json
+            $rewardsTrackApp = @(
+                @{$node.keyFull = $layers}
+            )
+            Write-Output $rewardsTrackApp | ConvertTo-Json -depth 100 | Out-File -FilePath RewardsTrackApp.json -Append
         } 
         
         # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
