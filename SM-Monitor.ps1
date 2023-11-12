@@ -80,6 +80,7 @@ function main {
         $resultsNodeHighestATX = $null
         $epoch = $null
         $totalLayers = $null
+        $avaiableLayers = $null
         
         foreach ($node in $nodeList) {
             Write-Host  " $($node.info)" -NoNewline -ForegroundColor Cyan
@@ -127,12 +128,15 @@ function main {
                 Write-Output $eventstream >> log.json
                 Write-Output ']' >> log.json
                 $FilePath = ".\log.json"
-                (Get-Content -Raw -Path $FilePath) -replace '\r\n','' | Set-Content -Path $FilePath
-                (Get-Content -Raw -Path $FilePath) -replace '}{','},{' | Set-Content -Path $FilePath
+                (Get-Content -Raw -Path $FilePath) -replace '\r\n', '' | Set-Content -Path $FilePath
+                (Get-Content -Raw -Path $FilePath) -replace '}{', '},{' | Set-Content -Path $FilePath
                 $jsonObject = Get-Content -Path $FilePath | Out-String | ConvertFrom-JSON
-                        $rewards = (($jsonObject.eligibilities | Where-Object {$_.epoch -eq $epoch.number}).eligibilities | Measure-Object).Count
-                if ($null -ne $rewards){
+                $rewards = (($jsonObject.eligibilities | Where-Object { $_.epoch -eq $epoch.number }).eligibilities | Measure-Object).count
+                $layers = ($jsonObject.eligibilities | Where-Object { $_.epoch -eq $epoch.number }).eligibilities
+                $jsonObject = Get-Content -Path $FilePath | Out-String | ConvertFrom-JSON
+                if (($null -ne $rewards) -and ($null -ne $layers)) {
                     $node.rewards = $rewards
+                    $node.layers = $layers
                 }
                 
         
@@ -166,6 +170,7 @@ function main {
                     $publicKey2 = (B64_to_Hex -id2convert $publicKey)
                     #Extract last 5 digits from SmesherID
                     $node.key = $publicKey2.substring($publicKey2.length - 5, 5)
+                    $node.keyFull = $publicKey2
                 }
                 #Uncomment next line if your Smapp using standard configuration -- 2 of 2
                 #}  
@@ -186,11 +191,13 @@ function main {
                 Verified    = $node.verifiedLayer
                 Version     = $node.version
                 Smeshing    = $node.smeshing
-                RWD          = $rewards
+                RWD         = $node.rewards
             } 
             $object += $o
             $totalLayers = $totalLayers + $node.rewards
-        }
+            $avaiableLayers = $avaiableLayers + $node.layers
+            Write-Output $node.keyFull $avaiableLayers | ConvertTo-Json -depth 100 | Out-File -FilePath RewardsTrackApp.json
+        } 
         
         # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
         $privateOnlineNodes = ($object | Where-Object { $_.Synced -match "True" -and $_.Host -match "localhost" })[0]
@@ -247,6 +254,7 @@ function main {
         #Write-Host "      PrevATX: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.prevAtx.id -ForegroundColor Green
         #Write-Host "    SmesherID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.smesherId.id -ForegroundColor Green
         Write-Host "--------------------------------------------------------------------------------" -ForegroundColor Yellow
+
         Write-Host `n
         $newline = "`r`n"
             
