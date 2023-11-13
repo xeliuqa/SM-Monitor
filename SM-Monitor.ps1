@@ -174,7 +174,9 @@ function main {
                     #Extract last 5 digits from SmesherID
                     $node.key = $publicKey2.substring($publicKey2.length - 5, 5)
                     $node.keyFull = $publicKey2
-                }
+                } else {
+					$node.keyFull = "Not smeshing"
+	 			}
                 #Uncomment next line if your Smapp using standard configuration -- 2 of 2
                 #}  
             }
