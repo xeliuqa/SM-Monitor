@@ -81,7 +81,9 @@ function main {
         $epoch = $null
         $totalLayers = $null
         $avaiableLayers = $null
-        Clear-Content ".\RewardsTrackApp.json"
+        if (Test-Path ".\RewardsTrackApp.json") {
+			Clear-Content ".\RewardsTrackApp.json"
+		}
         
         foreach ($node in $nodeList) {
             Write-Host  " $($node.info)" -NoNewline -ForegroundColor Cyan
