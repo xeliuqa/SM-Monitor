@@ -62,12 +62,23 @@ function main {
         @{ Column = "Smeshing"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
-        @{ Column = "RL"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = "Black" }
+        @{ Column = "RWD"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = "Black" },
+        @{ Column = "ATX"; Value = "*"; ForegroundColor = "Green"; BackgroundColor = "Black" },
+        @{ Column = "ATX"; Value = "-"; ForegroundColor = "White"; BackgroundColor = "Black" }
+        
     )
                 
     if ($null -eq $gitVersion) {
         foreach ($rule in $ColumnRules) {
             if (($rule.Column -eq "Version") -and ($rule.Value -eq "*")) {
+                $rule.ForegroundColor = "White"
+                break
+            }
+        }
+    }
+    if ($null -ne $atxTarget) {
+        foreach ($rule in $ColumnRules) {
+            if (($rule.Column -eq "ATX") -and ($rule.Value -eq "-")) {
                 $rule.ForegroundColor = "White"
                 break
             }
@@ -82,8 +93,8 @@ function main {
         $totalLayers = $null
         $avaiableLayers = $null
         if (Test-Path ".\RewardsTrackApp.json") {
-			Clear-Content ".\RewardsTrackApp.json"
-		}
+            Clear-Content ".\RewardsTrackApp.json"
+        }
         
         foreach ($node in $nodeList) {
             Write-Host  " $($node.info)" -NoNewline -ForegroundColor Cyan
@@ -136,13 +147,23 @@ function main {
                 $jsonObject = Get-Content -Path $FilePath | Out-String | ConvertFrom-JSON
                 $rewards = (($jsonObject.eligibilities | Where-Object { $_.epoch -eq $epoch.number }).eligibilities | Measure-Object).count
                 $layers = ($jsonObject.eligibilities | Where-Object { $_.epoch -eq $epoch.number }).eligibilities
+                $atx = ($jsonObject.atxPublished)
+                $atxTarget = ($jsonObject.atxPublished).target
                 $jsonObject = Get-Content -Path $FilePath | Out-String | ConvertFrom-JSON
                 if (($null -ne $rewards) -and ($null -ne $layers)) {
                     $node.rewards = $rewards
                     $node.layers = $layers
+                    
+                }
+                if ($null -eq $atx.current) {
+                    $node.atx = "-"
+                }
+                else {
+                    if ($atx.target -gt $atx.current) {
+                        $node.atx = $atxTarget
+                    }
                 }
                 
-        
                 #Uncomment next line if your Smapp using standard configuration -- 1 of 2
                 #if (($node.host -eq "localhost") -Or ($node.host -ne "localhost" -And $node.port2 -ne 9093)){ 
                 $smeshing = $null
@@ -174,9 +195,10 @@ function main {
                     #Extract last 5 digits from SmesherID
                     $node.key = $publicKey2.substring($publicKey2.length - 5, 5)
                     $node.keyFull = $publicKey2
-                } else {
-					$node.keyFull = "Not smeshing"
-	 			}
+                }
+                else {
+                    $node.keyFull = "Not smeshing"
+                }
                 #Uncomment next line if your Smapp using standard configuration -- 2 of 2
                 #}  
             }
@@ -197,13 +219,14 @@ function main {
                 Version     = $node.version
                 Smeshing    = $node.smeshing
                 RWD         = $node.rewards
+                ATX         = $node.atx
                 
             } 
             $object += $o
             $totalLayers = $totalLayers + $node.rewards
             $avaiableLayers = $avaiableLayers + $node.layers
             $rewardsTrackApp = @(
-                @{$node.keyFull = $layers}
+                @{$node.keyFull = $node.layers }
             )
             Write-Output $rewardsTrackApp | ConvertTo-Json -depth 100 | Out-File -FilePath RewardsTrackApp.json -Append
         } 
@@ -248,7 +271,7 @@ function main {
         }
         
         Clear-Host
-        $object | Select-Object Info, SmesherID, Host, Port, Peers, SU, SizeTiB, Synced, Layer, Top, Verified, Version, Smeshing, RWD | ColorizeMyObject -ColumnRules $columnRules
+        $object | Select-Object Info, SmesherID, Host, Port, Peers, SU, SizeTiB, Synced, Layer, Top, Verified, Version, Smeshing, RWD, ATX | ColorizeMyObject -ColumnRules $columnRules
         Write-Host `n
         Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
         Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch.number -ForegroundColor Green
