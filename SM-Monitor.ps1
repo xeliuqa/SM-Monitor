@@ -228,8 +228,11 @@ function main {
             $rewardsTrackApp = @(
                 @{$node.keyFull = $node.layers }
             )
+            
             Write-Output $rewardsTrackApp | ConvertTo-Json -depth 100 | Out-File -FilePath RewardsTrackApp.json -Append
-        } 
+            } 
+            $data = (Get-Content RewardsTrackApp.json -Raw) -replace '(?m)}\s+{', ',' |ConvertFrom-Json
+            $data | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp.json"
         
         # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
         $privateOnlineNodes = ($object | Where-Object { $_.Synced -match "True" -and $_.Host -match "localhost" })[0]
