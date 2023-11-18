@@ -84,7 +84,9 @@ function main {
             }
         }
     }
-            
+	if (Test-Path ".\RewardsTrackApp.tmp") {
+		Remove-Item ".\RewardsTrackApp.tmp"
+	}
     while ($true) {
         
         $object = @()
@@ -92,9 +94,6 @@ function main {
         $epoch = $null
         $totalLayers = $null
         $avaiableLayers = $null
-        if (Test-Path ".\RewardsTrackApp.json") {
-            Clear-Content ".\RewardsTrackApp.json"
-        }
         
         foreach ($node in $nodeList) {
             Write-Host  " $($node.info)" -NoNewline -ForegroundColor Cyan
@@ -138,22 +137,38 @@ function main {
 
                 $rewards = $null
                 $eventstream = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.AdminService.EventsStream")) 2>$null
-                Write-Output '[' > log.json
-                Write-Output $eventstream >> log.json
-                Write-Output ']' >> log.json
-                $FilePath = ".\log.json"
-                (Get-Content -Raw -Path $FilePath) -replace '\r\n', '' | Set-Content -Path $FilePath
-                (Get-Content -Raw -Path $FilePath) -replace '}{', '},{' | Set-Content -Path $FilePath
-                $jsonObject = Get-Content -Path $FilePath | Out-String | ConvertFrom-JSON
-                $rewards = (($jsonObject.eligibilities | Where-Object { $_.epoch -eq $epoch.number }).eligibilities | Measure-Object).count
-                $layers = ($jsonObject.eligibilities | Where-Object { $_.epoch -eq $epoch.number }).eligibilities
-                $atx = ($jsonObject.atxPublished)
-                $atxTarget = ($jsonObject.atxPublished).target
-                $jsonObject = Get-Content -Path $FilePath | Out-String | ConvertFrom-JSON
+                $eventstream = $eventstream -split "`n" | Where-Object { $_ }
+                $eligibilities = @()
+                $jsonObject = @()
+                foreach ($line in $eventstream) {
+                    if ($line -eq "{") {
+                        $jsonObject = @()
+                    }
+                    $jsonObject += $line
+                    if ($line -eq "}") {
+                        Try {
+                            $json = $jsonObject -join "`n" | ConvertFrom-Json
+                            if ($json.eligibilities) {
+                                $eligibilities += $json.eligibilities
+                            }
+                        }
+                        Catch {
+                            # Ignore the error and continue
+                            continue
+                        }
+                    }
+                }
+                foreach ($eligibility in $eligibilities) {
+                    if ($eligibility.epoch -eq $epoch.number) {
+                        $rewards = ($eligibility.eligibilities | Measure-Object).count
+                        $layers = $eligibility.eligibilities
+                    }
+                #$atx = ($jsonObject.atxPublished)
+                #$atxTarget = ($jsonObject.atxPublished).target
+                }
                 if (($null -ne $rewards) -and ($null -ne $layers)) {
                     $node.rewards = $rewards
                     $node.layers = $layers
-                    
                 }
                 if ($null -eq $atx.current) {
                     $node.atx = "-"
@@ -196,9 +211,7 @@ function main {
                     $node.key = $publicKey2.substring($publicKey2.length - 5, 5)
                     $node.keyFull = $publicKey2
                 }
-                else {
-                    $node.keyFull = "Not smeshing"
-                }
+
                 #Uncomment next line if your Smapp using standard configuration -- 2 of 2
                 #}  
             }
@@ -224,15 +237,26 @@ function main {
             } 
             $object += $o
             $totalLayers = $totalLayers + $node.rewards
-            $avaiableLayers = $avaiableLayers + $node.layers
-            $rewardsTrackApp = @(
-                @{$node.keyFull = $node.layers }
-            )
-            Write-Output $rewardsTrackApp | ConvertTo-Json -depth 100 | Out-File -FilePath RewardsTrackApp.json -Append
-        } 
-        
+            #$avaiableLayers = $avaiableLayers + $node.layers
+			if ($null -ne $node.layers) {
+                $rewardsTrackApp = @(@{$node.keyFull = $node.layers })
+                Write-Output $rewardsTrackApp | ConvertTo-Json -depth 100 | Out-File -FilePath RewardsTrackApp.tmp -Append
+			}
+		}
+		if (Test-Path ".\RewardsTrackApp.json") {
+			Clear-Content ".\RewardsTrackApp.json"
+		}
+        $data = (Get-Content RewardsTrackApp.tmp -Raw) -replace '(?m)}\s+{', ',' |ConvertFrom-Json
+        $data | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp.json"
+		Remove-Item ".\RewardsTrackApp.tmp"
+			
         # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
-        $privateOnlineNodes = ($object | Where-Object { $_.Synced -match "True" -and $_.Host -match "localhost" })[0]
+        $filterObjects = $object | Where-Object { $_.Synced -match "True" -and $_.Host -match "localhost" }
+        if ($filterObjects) {
+            $privateOnlineNodes = $filterObjects[0]
+        } else {
+            $privateOnlineNodes = $null
+        }
         
         # If private nodes are found, determine the PS version and execute corresponding grpcurl if statement. Else skip.
         if ($privateOnlineNodes.Info.count -gt 0) {
@@ -253,17 +277,16 @@ function main {
                 $coinbase = "($coinbase)" 
                 if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
             }
+            if ($coinbaseAddressVisibility -eq "partial") {
+                $coinbase = '(' + $($coinbase).Substring($($coinbase).IndexOf(")") - 4, 4) + ')'
+            }
+            elseif ($coinbaseAddressVisibility -eq "hidden") {
+                $coinbase = "(----)"
+            }
         }
         else {
             $coinbase = ""
             $balanceSMH = "You must have at least one synced private 'localhost' node defined..."
-        }
-        
-        if ($coinbaseAddressVisibility -eq "partial") {
-            $coinbase = '(' + $($coinbase).Substring($($coinbase).IndexOf(")") - 4, 4) + ')'
-        }
-        elseif ($coinbaseAddressVisibility -eq "hidden") {
-            $coinbase = "(----)"
         }
         
         if ($smhCoinsVisibility -eq $false) {
