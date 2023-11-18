@@ -33,6 +33,7 @@ $nodeList = @(
 ################ Settings Finish ###############
 
 function main {
+	[System.Console]::CursorVisible = $false
     printSMMonitorLogo
     Write-Host "Querying nodes..." -NoNewline -ForegroundColor Cyan       
     $gitVersion = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/spacemeshos/go-spacemesh/releases/latest" 2>$null
