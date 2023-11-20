@@ -33,6 +33,7 @@ $nodeList = @(
 ################ Settings Finish ###############
 
 function main {
+	[System.Console]::CursorVisible = $false
     printSMMonitorLogo
     Write-Host "Querying nodes..." -NoNewline -ForegroundColor Cyan       
     $gitVersion = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/spacemeshos/go-spacemesh/releases/latest" 2>$null
@@ -61,7 +62,11 @@ function main {
         @{ Column = "Smeshing"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" },
-        @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" }
+        @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
+        @{ Column = "RWD"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = "Black" },
+        @{ Column = "ATX"; Value = "*"; ForegroundColor = "Green"; BackgroundColor = "Black" },
+        @{ Column = "ATX"; Value = "-"; ForegroundColor = "White"; BackgroundColor = "Black" }
+        
     )
                 
     if ($null -eq $gitVersion) {
@@ -72,12 +77,24 @@ function main {
             }
         }
     }
-            
+    if ($null -ne $atxTarget) {
+        foreach ($rule in $ColumnRules) {
+            if (($rule.Column -eq "ATX") -and ($rule.Value -eq "-")) {
+                $rule.ForegroundColor = "White"
+                break
+            }
+        }
+    }
+	if (Test-Path ".\RewardsTrackApp.tmp") {
+		Remove-Item ".\RewardsTrackApp.tmp"
+	}
     while ($true) {
         
         $object = @()
         $resultsNodeHighestATX = $null
         $epoch = $null
+        $totalLayers = $null
+        $avaiableLayers = $null
         
         foreach ($node in $nodeList) {
             Write-Host  " $($node.info)" -NoNewline -ForegroundColor Cyan
@@ -118,7 +135,51 @@ function main {
                 if ($null -ne $version) {
                     $node.version = $version
                 }
-        
+
+                $rewards = $null
+                $eventstream = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.AdminService.EventsStream")) 2>$null
+                $eventstream = $eventstream -split "`n" | Where-Object { $_ }
+                $eligibilities = @()
+                $jsonObject = @()
+                foreach ($line in $eventstream) {
+                    if ($line -eq "{") {
+                        $jsonObject = @()
+                    }
+                    $jsonObject += $line
+                    if ($line -eq "}") {
+                        Try {
+                            $json = $jsonObject -join "`n" | ConvertFrom-Json
+                            if ($json.eligibilities) {
+                                $eligibilities += $json.eligibilities
+                            }
+                        }
+                        Catch {
+                            # Ignore the error and continue
+                            continue
+                        }
+                    }
+                }
+                foreach ($eligibility in $eligibilities) {
+                    if ($eligibility.epoch -eq $epoch.number) {
+                        $rewards = ($eligibility.eligibilities | Measure-Object).count
+                        $layers = $eligibility.eligibilities
+                    }
+                #$atx = ($jsonObject.atxPublished)
+                #$atxTarget = ($jsonObject.atxPublished).target
+                }
+                if (($null -ne $rewards) -and ($null -ne $layers)) {
+                    $node.rewards = $rewards
+                    $node.layers = $layers
+                }
+                if ($null -eq $atx.current) {
+                    $node.atx = "-"
+                }
+                else {
+                    if ($atx.target -gt $atx.current) {
+                        $node.atx = $atxTarget
+                    }
+                }
+                
                 #Uncomment next line if your Smapp using standard configuration -- 1 of 2
                 #if (($node.host -eq "localhost") -Or ($node.host -ne "localhost" -And $node.port2 -ne 9093)){ 
                 $smeshing = $null
@@ -149,7 +210,9 @@ function main {
                     $publicKey2 = (B64_to_Hex -id2convert $publicKey)
                     #Extract last 5 digits from SmesherID
                     $node.key = $publicKey2.substring($publicKey2.length - 5, 5)
+                    $node.keyFull = $publicKey2
                 }
+
                 #Uncomment next line if your Smapp using standard configuration -- 2 of 2
                 #}  
             }
@@ -169,12 +232,32 @@ function main {
                 Verified    = $node.verifiedLayer
                 Version     = $node.version
                 Smeshing    = $node.smeshing
+                RWD         = $node.rewards
+                ATX         = $node.atx
+                
             } 
             $object += $o
-        }
-        
+            $totalLayers = $totalLayers + $node.rewards
+            #$avaiableLayers = $avaiableLayers + $node.layers
+			if ($null -ne $node.layers) {
+                $rewardsTrackApp = @(@{$node.keyFull = $node.layers })
+                Write-Output $rewardsTrackApp | ConvertTo-Json -depth 100 | Out-File -FilePath RewardsTrackApp.tmp -Append
+			}
+		}
+		if (Test-Path ".\RewardsTrackApp.json") {
+			Clear-Content ".\RewardsTrackApp.json"
+		}
+        $data = (Get-Content RewardsTrackApp.tmp -Raw) -replace '(?m)}\s+{', ',' |ConvertFrom-Json
+        $data | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp.json"
+		Remove-Item ".\RewardsTrackApp.tmp"
+			
         # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
-        $privateOnlineNodes = ($object | Where-Object { $_.Synced -match "True" -and $_.Host -match "localhost" })[0]
+        $filterObjects = $object | Where-Object { $_.Synced -match "True" -and $_.Host -match "localhost" }
+        if ($filterObjects) {
+            $privateOnlineNodes = $filterObjects[0]
+        } else {
+            $privateOnlineNodes = $null
+        }
         
         # If private nodes are found, determine the PS version and execute corresponding grpcurl if statement. Else skip.
         if ($privateOnlineNodes.Info.count -gt 0) {
@@ -195,17 +278,16 @@ function main {
                 $coinbase = "($coinbase)" 
                 if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
             }
+            if ($coinbaseAddressVisibility -eq "partial") {
+                $coinbase = '(' + $($coinbase).Substring($($coinbase).IndexOf(")") - 4, 4) + ')'
+            }
+            elseif ($coinbaseAddressVisibility -eq "hidden") {
+                $coinbase = "(----)"
+            }
         }
         else {
             $coinbase = ""
             $balanceSMH = "You must have at least one synced private 'localhost' node defined..."
-        }
-        
-        if ($coinbaseAddressVisibility -eq "partial") {
-            $coinbase = '(' + $($coinbase).Substring($($coinbase).IndexOf(")") - 4, 4) + ')'
-        }
-        elseif ($coinbaseAddressVisibility -eq "hidden") {
-            $coinbase = "(----)"
         }
         
         if ($smhCoinsVisibility -eq $false) {
@@ -213,7 +295,7 @@ function main {
         }
         
         Clear-Host
-        $object | Select-Object Info, SmesherID, Host, Port, Peers, SU, SizeTiB, Synced, Layer, Top, Verified, Version, Smeshing | ColorizeMyObject -ColumnRules $columnRules
+        $object | Select-Object Info, SmesherID, Host, Port, Peers, SU, SizeTiB, Synced, Layer, Top, Verified, Version, Smeshing, RWD, ATX | ColorizeMyObject -ColumnRules $columnRules
         Write-Host `n
         Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
         Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch.number -ForegroundColor Green
@@ -221,12 +303,14 @@ function main {
             Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $resultsNodeHighestATX.id.id) -ForegroundColor Green
         }
         Write-Host "ATX Base64_ID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.id.id -ForegroundColor Green
+        Write-Host " Total Layers: " -ForegroundColor Cyan -nonewline; Write-Host ($totalLayers) -ForegroundColor Yellow -nonewline; Write-Host " Layers"
         Write-Host "      Balance: " -ForegroundColor Cyan -NoNewline; Write-Host "$balanceSMH" -ForegroundColor White -NoNewline; Write-Host " $($coinbase)" -ForegroundColor Cyan
         #Write-Host "        Layer: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.layer.number -ForegroundColor Green
         #Write-Host "     NumUnits: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.numUnits -ForegroundColor Green
         #Write-Host "      PrevATX: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.prevAtx.id -ForegroundColor Green
         #Write-Host "    SmesherID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.smesherId.id -ForegroundColor Green
         Write-Host "--------------------------------------------------------------------------------" -ForegroundColor Yellow
+
         Write-Host `n
         $newline = "`r`n"
             
