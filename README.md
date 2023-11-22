@@ -5,7 +5,7 @@ With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa<br>
 for the various contributions in making this script awesome
 <br>
 `Click for video`<br>
-[![IMAGE ALT TEXT HERE](https://github.com/xeliuqa/SM-Monitor/blob/main/SM-Monitor.gif)](https://youtu.be/kSJo18gsKMQ )
+[![IMAGE ALT TEXT HERE](https://github.com/xeliuqa/SM-Monitor/blob/main/SM-Monitor.gif)](https://youtu.be/tahubRoLjb8)
 <br>
 
 To use this monitor you need GRPCurl
