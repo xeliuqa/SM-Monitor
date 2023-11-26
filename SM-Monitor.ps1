@@ -268,16 +268,18 @@ function main {
             }
         }
         if ($rewardsTrackApp -and ($fileFormat -ne 0)) {
+			$files = Get-ChildItem -Path .\ -Filter "RewardsTrackApp_*.json"
+			foreach ($file in $files) {
+				Remove-Item $file.FullName
+			}
+   			$timestamp = Get-Date -Format "HHmm"
             if ($fileFormat -eq 1) {
-				if (Test-Path ".\RewardsTrackApp.json") {
-					Clear-Content ".\RewardsTrackApp.json"
-				}
                 $data = (Get-Content RewardsTrackApp.tmp -Raw) -replace '(?m)}\s+{', ',' |ConvertFrom-Json
-				$data | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp.json"
+				$data | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp_$timestamp.json"
 				Remove-Item ".\RewardsTrackApp.tmp"
             }
             elseif ($fileFormat -eq 2) {
-                $rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp.json"
+                $rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp_$timestamp.json"
             }
 			elseif (($fileFormat -eq 3)) {
 				$rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "SM-Layers.json"
