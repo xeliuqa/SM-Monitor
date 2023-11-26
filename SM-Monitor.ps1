@@ -268,7 +268,7 @@ function main {
                 }
             }
         }
-        if ($rewardsTrackApp) {
+        if ($rewardsTrackApp -and ($fileFormat -ne 0)) {
             if ($fileFormat -eq 3) {
                 $rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "SM-Layers.json"
             }
