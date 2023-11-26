@@ -244,9 +244,8 @@ function main {
             $totalLayers = $totalLayers + $node.rewards
             if ($node.layers) {
                 if ($fileFormat -eq 1) {
-                    $rewardsTrackApp += @(
-                        @{$node.keyFull = $node.layers }
-                    )
+					$rewardsTrackApp = @(@{$node.keyFull = $node.layers })
+					Write-Output $rewardsTrackApp | ConvertTo-Json -depth 100 | Out-File -FilePath RewardsTrackApp.tmp -Append
                 }
                 elseif ($fileFormat -eq 2) {
                     $nodeData = [ordered]@{
@@ -269,12 +268,20 @@ function main {
             }
         }
         if ($rewardsTrackApp -and ($fileFormat -ne 0)) {
-            if ($fileFormat -eq 3) {
-                $rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "SM-Layers.json"
+            if ($fileFormat -eq 1) {
+				if (Test-Path ".\RewardsTrackApp.json") {
+					Clear-Content ".\RewardsTrackApp.json"
+				}
+                $data = (Get-Content RewardsTrackApp.tmp -Raw) -replace '(?m)}\s+{', ',' |ConvertFrom-Json
+				$data | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp.json"
+				Remove-Item ".\RewardsTrackApp.tmp"
             }
-            else {
+            elseif ($fileFormat -eq 2) {
                 $rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp.json"
             }
+			elseif (($fileFormat -eq 3)) {
+				$rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "SM-Layers.json"
+			}
         }
 			
         # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
