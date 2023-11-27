@@ -11,26 +11,26 @@
 
     $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
-############## General Settings  ##############
-$coinbaseAddressVisibility = "partial" # "partial", "full", "hidden"
-$smhCoinsVisibility = $true # $true or $false.
-$fakeCoins = 0 # For screenshot purposes.  Set to 0 to pull real coins.  FAKE 'EM OUT!  (Example: 2352.24)
-$tableRefreshTimeSeconds = 60 # Time in seconds that the refresh happens.  Lower value = more grpc entries in logs.
-$logoDelay = 3
-$host.UI.RawUI.BackgroundColor = "Black" # Set the entire background to specific color
-$emailEnable = "False" #True to enable email notification, False to disable
-$myEmail = "my@email.com" #Set your Email for notifications
-$grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in same folder
-
-$nodeList = @(
-    @{ info = "Node_01"; host = "192.168.1.xx"; port = 11001; port2 = 11002 },
-    @{ info = "Node_02"; host = "192.168.1.xx"; port = 12001; port2 = 12002 },
-    @{ info = "Node_03"; host = "192.168.1.xx"; port = 13001; port2 = 13002 },
-    @{ info = "Node_04"; host = "192.168.1.xx"; port = 14001; port2 = 14002 },
-    @{ info = "SMAPP_Server"; host = "192.168.1.xx"; port = 9092; port2 = 9093 },
-    @{ info = "SMAPP_Home"; host = "localhost"; port = 9092; port2 = 9093 }
-)
-################ Settings Finish ###############
+    ############## General Settings  ##############
+    $coinbaseAddressVisibility = "partial" # "partial", "full", "hidden"
+    $smhCoinsVisibility = $true # $true or $false.
+    $fakeCoins = 0 # For screenshot purposes.  Set to 0 to pull real coins.  FAKE 'EM OUT!  (Example: 2352.24)
+    $tableRefreshTimeSeconds = 60 # Time in seconds that the refresh happens.  Lower value = more grpc entries in logs.
+    $logoDelay = 3
+    $host.UI.RawUI.BackgroundColor = "Black" # Set the entire background to specific color
+    $emailEnable = "False" #True to enable email notification, False to disable
+    $myEmail = "my@email.com" #Set your Email for notifications
+    $grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in same folder
+    
+    $nodeList = @(
+        @{ info = "Node_01"; host = "192.168.1.xx"; port = 11001; port2 = 11002 },
+        @{ info = "Node_02"; host = "192.168.1.xx"; port = 12001; port2 = 12002 },
+        @{ info = "Node_03"; host = "192.168.1.xx"; port = 13001; port2 = 13002 },
+        @{ info = "Node_04"; host = "192.168.1.xx"; port = 14001; port2 = 14002 },
+        @{ info = "SMAPP_Server"; host = "192.168.1.xx"; port = 9092; port2 = 9093 },
+        @{ info = "SMAPP_Home"; host = "localhost"; port = 9092; port2 = 9093 }
+    )
+    ################ Settings Finish ###############
 
 function main {
     printSMMonitorLogo
@@ -61,7 +61,11 @@ function main {
         @{ Column = "Smeshing"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = "Black" },
         @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = "Black" },
-        @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" }
+        @{ Column = "Smeshing"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = "Black" },
+        @{ Column = "RWD"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = "Black" },
+        @{ Column = "ATX"; Value = "*"; ForegroundColor = "Green"; BackgroundColor = "Black" },
+        @{ Column = "ATX"; Value = "-"; ForegroundColor = "White"; BackgroundColor = "Black" }
+        
     )
                 
     if ($null -eq $gitVersion) {
@@ -78,6 +82,11 @@ function main {
         $object = @()
         $resultsNodeHighestATX = $null
         $epoch = $null
+        $totalLayers = $null
+        $avaiableLayers = $null
+        if (Test-Path ".\RewardsTrackApp.json") {
+            Clear-Content ".\RewardsTrackApp.json"
+        }
         
         foreach ($node in $nodeList) {
             Write-Host  " $($node.info)" -NoNewline -ForegroundColor Cyan
@@ -118,7 +127,36 @@ function main {
                 if ($null -ne $version) {
                     $node.version = $version
                 }
-        
+
+                $rewards = $null
+                $eventstream = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.AdminService.EventsStream")) 2>$null
+                Write-Output '[' > log.json
+                Write-Output $eventstream >> log.json
+                Write-Output ']' >> log.json
+                $FilePath = ".\log.json"
+                (Get-Content -Raw -Path $FilePath) -replace '\r\n', '' | Set-Content -Path $FilePath
+                (Get-Content -Raw -Path $FilePath) -replace '}{', '},{' | Set-Content -Path $FilePath
+                $jsonObject = Get-Content -Path $FilePath | Out-String | ConvertFrom-JSON
+                $rewards = (($jsonObject.eligibilities | Where-Object { $_.epoch -eq $epoch.number }).eligibilities | Measure-Object).count
+                $layers = ($jsonObject.eligibilities | Where-Object { $_.epoch -eq $epoch.number }).eligibilities
+                $atxTarget = ($jsonObject.atxPublished).target
+                #if is 1st Poet, or missed window, we look for Next target Poet
+                $poetWait = ($jsonObject.poetWaitProof).target
+                $jsonObject = Get-Content -Path $FilePath | Out-String | ConvertFrom-JSON
+                if (($null -ne $rewards) -and ($null -ne $layers)) {
+                    $node.rewards = $rewards
+                    $node.layers = $layers
+                }
+                if ($null -eq $atxTarget) {
+                    $node.atx = $poetWait
+                }
+                else {
+                    $node.atx = $atxTarget
+                }
+                if (($null -eq $atxTarget) -and ($null -eq $poetWait)){
+                    $node.atx = "-"
+                }
+
                 #Uncomment next line if your Smapp using standard configuration -- 1 of 2
                 #if (($node.host -eq "localhost") -Or ($node.host -ne "localhost" -And $node.port2 -ne 9093)){ 
                 $smeshing = $null
@@ -135,7 +173,7 @@ function main {
                     $node.numUnits = $state.opts.numUnits
                             
                     if ($state.state -eq "STATE_IN_PROGRESS") {
-                        $percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 1)
+                        $percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 2)
                         $node.smeshing = "$($percent)%"
                     }
                 }
@@ -149,6 +187,10 @@ function main {
                     $publicKey2 = (B64_to_Hex -id2convert $publicKey)
                     #Extract last 5 digits from SmesherID
                     $node.key = $publicKey2.substring($publicKey2.length - 5, 5)
+                    $node.keyFull = $publicKey2
+                }
+                else {
+                    $node.keyFull = "Not smeshing"
                 }
                 #Uncomment next line if your Smapp using standard configuration -- 2 of 2
                 #}  
@@ -169,9 +211,21 @@ function main {
                 Verified    = $node.verifiedLayer
                 Version     = $node.version
                 Smeshing    = $node.smeshing
+                RWD         = $node.rewards
+                ATX         = $node.atx
+                
             } 
             $object += $o
-        }
+            $totalLayers = $totalLayers + $node.rewards
+            $avaiableLayers = $avaiableLayers + $node.layers
+            $rewardsTrackApp = @(
+                @{$node.keyFull = $node.layers }
+            )
+            
+            Write-Output $rewardsTrackApp | ConvertTo-Json -depth 100 | Out-File -FilePath RewardsTrackApp.json -Append
+        } 
+        $data = (Get-Content RewardsTrackApp.json -Raw) -replace '(?m)}\s+{', ',' | ConvertFrom-Json
+        $data | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp.json"
         
         # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
         $privateOnlineNodes = ($object | Where-Object { $_.Synced -match "True" -and $_.Host -match "localhost" })[0]
@@ -213,7 +267,7 @@ function main {
         }
         
         Clear-Host
-        $object | Select-Object Info, SmesherID, Host, Port, Peers, SU, SizeTiB, Synced, Layer, Top, Verified, Version, Smeshing | ColorizeMyObject -ColumnRules $columnRules
+        $object | Select-Object Info, SmesherID, Host, Port, Peers, SU, SizeTiB, Synced, Layer, Top, Verified, Version, Smeshing, RWD, ATX | ColorizeMyObject -ColumnRules $columnRules
         Write-Host `n
         Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
         Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch.number -ForegroundColor Green
@@ -221,12 +275,14 @@ function main {
             Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $resultsNodeHighestATX.id.id) -ForegroundColor Green
         }
         Write-Host "ATX Base64_ID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.id.id -ForegroundColor Green
+        Write-Host " Total Layers: " -ForegroundColor Cyan -nonewline; Write-Host ($totalLayers) -ForegroundColor Yellow -nonewline; Write-Host " Layers"
         Write-Host "      Balance: " -ForegroundColor Cyan -NoNewline; Write-Host "$balanceSMH" -ForegroundColor White -NoNewline; Write-Host " $($coinbase)" -ForegroundColor Cyan
         #Write-Host "        Layer: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.layer.number -ForegroundColor Green
         #Write-Host "     NumUnits: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.numUnits -ForegroundColor Green
         #Write-Host "      PrevATX: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.prevAtx.id -ForegroundColor Green
         #Write-Host "    SmesherID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.smesherId.id -ForegroundColor Green
         Write-Host "--------------------------------------------------------------------------------" -ForegroundColor Yellow
+
         Write-Host `n
         $newline = "`r`n"
             
@@ -455,40 +511,40 @@ function printSMMonitorLogo {
                    /_____/_____/_____/_____/_____/  https://github.com/xeliuqa/SM-Monitor     
                                                                  https://www.spacemesh.io     
 "@
-        
-        $lines = $asciiArt -split "`n"
-                                                             
-        for ($col = 1; $col -le $lines[0].Length; $col++) {
-            for ($row = 1; $row -le $lines.Length; $row++) {
-                $char = if ($col - 1 -lt $lines[$row - 1].Length) { $lines[$row - 1][$col - 1] } else { ' ' }
-                $CursorPosition = [System.Management.Automation.Host.Coordinates]::new($col + $horizontalOffset, $row + $verticalOffset)
-                $host.UI.RawUI.CursorPosition = $CursorPosition
-                if ($char -eq ' ') {
-                    Write-Host $char -NoNewline
-                }
-                else {
-                    Write-Host $char -NoNewline -ForegroundColor $highlightColor
-                }
-                Start-Sleep -Milliseconds $charDelay
+    
+    $lines = $asciiArt -split "`n"
+                                                         
+    for ($col = 1; $col -le $lines[0].Length; $col++) {
+        for ($row = 1; $row -le $lines.Length; $row++) {
+            $char = if ($col - 1 -lt $lines[$row - 1].Length) { $lines[$row - 1][$col - 1] } else { ' ' }
+            $CursorPosition = [System.Management.Automation.Host.Coordinates]::new($col + $horizontalOffset, $row + $verticalOffset)
+            $host.UI.RawUI.CursorPosition = $CursorPosition
+            if ($char -eq ' ') {
+                Write-Host $char -NoNewline
             }
-            for ($row = 1; $row -le $lines.Length; $row++) {
-                $char = if ($col - 1 -lt $lines[$row - 1].Length) { $lines[$row - 1][$col - 1] } else { ' ' }
-                $CursorPosition = [System.Management.Automation.Host.Coordinates]::new($col + $horizontalOffset, $row + $verticalOffset)
-                $host.UI.RawUI.CursorPosition = $CursorPosition
-                if ($char -eq ' ') {
-                    Write-Host $char -NoNewline
-                }
-                else {
-                    Write-Host $char -NoNewline -ForegroundColor $foregroundColor
-                }
+            else {
+                Write-Host $char -NoNewline -ForegroundColor $highlightColor
             }
-            Start-Sleep -Milliseconds $colDelay
+            Start-Sleep -Milliseconds $charDelay
         }
-                                                             
-        $CursorPosition = [System.Management.Automation.Host.Coordinates]::new(0, $lines.Length + $verticalOffset + 1)
-        $host.UI.RawUI.CursorPosition = $CursorPosition
-        Start-Sleep $logoDelay
-        Clear-Host
+        for ($row = 1; $row -le $lines.Length; $row++) {
+            $char = if ($col - 1 -lt $lines[$row - 1].Length) { $lines[$row - 1][$col - 1] } else { ' ' }
+            $CursorPosition = [System.Management.Automation.Host.Coordinates]::new($col + $horizontalOffset, $row + $verticalOffset)
+            $host.UI.RawUI.CursorPosition = $CursorPosition
+            if ($char -eq ' ') {
+                Write-Host $char -NoNewline
+            }
+            else {
+                Write-Host $char -NoNewline -ForegroundColor $foregroundColor
+            }
+        }
+        Start-Sleep -Milliseconds $colDelay
     }
-                                                             
-    main
+                                                         
+    $CursorPosition = [System.Management.Automation.Host.Coordinates]::new(0, $lines.Length + $verticalOffset + 1)
+    $host.UI.RawUI.CursorPosition = $CursorPosition
+    Start-Sleep $logoDelay
+    Clear-Host
+}
+                                                         
+main
