@@ -91,6 +91,10 @@ function main {
             }
         }
     }
+
+    if (Test-Path ".\RewardsTrackApp.tmp") {
+		Clear-Content ".\RewardsTrackApp.tmp"
+	}
 	
     while ($true) {
         
@@ -101,14 +105,11 @@ function main {
         $rewardsTrackApp = @()
         
         foreach ($node in $nodeList) {
+
+  			if ($null -eq $node.name) {
+				$node.name = $node.info	
+			}
             Write-Host  " $($node.name)" -NoNewline -ForegroundColor Cyan
-        
-            if ($null -eq $resultsNodeHighestATX) {
-                $resultsNodeHighestATX = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
-            }
-            if ($null -eq $epoch) {
-                $epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
-            }
                         
             $status = $null
             $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
@@ -133,6 +134,13 @@ function main {
             }
         
             if ($node.online) {
+				if ($null -eq $resultsNodeHighestATX) {
+                	$resultsNodeHighestATX = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 10 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
+            	}
+            	if ($null -eq $epoch) {
+                	$epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
+            	}
+			
                 $version = $null
                 $version = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Version")) | ConvertFrom-Json).versionString.value  2>$null
                 Write-Host -NoNewline "." -ForegroundColor Cyan
@@ -143,6 +151,7 @@ function main {
                 $eventstream = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.AdminService.EventsStream")) 2>$null
                 $eventstream = $eventstream -split "`n" | Where-Object { $_ }
                 $eligibilities = @()
+				$atxPublished =@()
                 $jsonObject = @()
                 foreach ($line in $eventstream) {
                     if ($line -eq "{") {
@@ -155,6 +164,9 @@ function main {
                             if ($json.eligibilities) {
                                 $eligibilities += $json.eligibilities
                             }
+							if ($json.atxPublished) {
+								$atxPublished += $json.atxPublished
+							}
                         }
                         Catch {
                             # Ignore the error and continue
@@ -162,14 +174,14 @@ function main {
                         }
                     }
                 }
+				$atx = $atxPublished
+                $atxTarget = $atxPublished.target
                 $layers = $null
                 foreach ($eligibility in $eligibilities) {
                     if ($eligibility.epoch -eq $epoch.number) {
                         $rewardsCount = ($eligibility.eligibilities | Measure-Object).count
                         $layers = $eligibility.eligibilities
                     }
-                    $atx = $eligibility.atxPublished
-                    $atxTarget = $eligibility.atxPublished.target
                 }
                 if (($rewardsCount) -and ($layers)) {
                     $node.rewards = $rewardsCount
@@ -292,7 +304,7 @@ function main {
             $filterObjects = $filterObjects | Where-Object { $_.Host -match "localhost" -or $_.Host -match "127.0.0.1" }
         }
         if ($filterObjects) {
-            $privateOnlineNodes = $filterObjects[0] #custom setting for me
+            $privateOnlineNodes = $filterObjects[0]
         }
         else {
             $privateOnlineNodes = $null
@@ -438,7 +450,7 @@ function main {
         [Console]::SetCursorPosition($originalPosition.X, $originalPosition.Y)
         [System.Console]::Write($clearmsg) 
         [Console]::SetCursorPosition($originalPosition.X, $originalPosition.Y)
-        Write-Host "Querying nodes..." -NoNewline -ForegroundColor Cyan
+        Write-Host "Updating..." -NoNewline -ForegroundColor Cyan
     }
 }
         
