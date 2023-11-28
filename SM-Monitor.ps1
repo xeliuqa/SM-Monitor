@@ -9,28 +9,35 @@
     Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
     --------------------------------------------------------------------------------------------- #>
 
-    $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
+$host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
-    ############## General Settings  ##############
-    $coinbaseAddressVisibility = "partial" # "partial", "full", "hidden"
-    $smhCoinsVisibility = $true # $true or $false.
-    $fakeCoins = 0 # For screenshot purposes.  Set to 0 to pull real coins.  FAKE 'EM OUT!  (Example: 2352.24)
-    $tableRefreshTimeSeconds = 60 # Time in seconds that the refresh happens.  Lower value = more grpc entries in logs.
-    $logoDelay = 3
-    $host.UI.RawUI.BackgroundColor = "Black" # Set the entire background to specific color
-    $emailEnable = "False" #True to enable email notification, False to disable
-    $myEmail = "my@email.com" #Set your Email for notifications
-    $grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in same folder
+############## General Settings  ##############
+$coinbaseAddressVisibility = "partial" # "partial", "full", "hidden"
+$smhCoinsVisibility = $true # $true or $false.
+$fakeCoins = 0 # For screenshot purposes.  Set to 0 to pull real coins.  FAKE 'EM OUT!  (Example: 2352.24)
+$tableRefreshTimeSeconds = 60 # Time in seconds that the refresh happens.  Lower value = more grpc entries in logs.
+$logoDelay = 3
+$host.UI.RawUI.BackgroundColor = "Black" # Set the entire background to specific color
+$emailEnable = "False" #True to enable email notification, False to disable
+$myEmail = "my@email.com" #Set your Email for notifications
+$grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in same folder
+$fileFormat = 0
+# FileFormat variable sets the type of the file you want to export
+# 0 - doesn't export
+# 1 - an old format used for Spacemesh Reward Tracker App (by BVale)
+# 2 - a new format used for Spacemesh Reward Tracker App (by BVale)
+# 3 - use it for layers tracking website (by PlainLazy: http://fcmx.net/sm-eligibilities/)
+
     
-    $nodeList = @(
-        @{ info = "Node_01"; host = "192.168.1.xx"; port = 11001; port2 = 11002 },
-        @{ info = "Node_02"; host = "192.168.1.xx"; port = 12001; port2 = 12002 },
-        @{ info = "Node_03"; host = "192.168.1.xx"; port = 13001; port2 = 13002 },
-        @{ info = "Node_04"; host = "192.168.1.xx"; port = 14001; port2 = 14002 },
-        @{ info = "SMAPP_Server"; host = "192.168.1.xx"; port = 9092; port2 = 9093 },
-        @{ info = "SMAPP_Home"; host = "localhost"; port = 9092; port2 = 9093 }
-    )
-    ################ Settings Finish ###############
+$nodeList = @(
+    @{ name = "Node_01"; host = "192.168.1.xx"; port = 11001; port2 = 11002 },
+    @{ name = "Node_02"; host = "192.168.1.xx"; port = 12001; port2 = 12002 },
+    @{ name = "Node_03"; host = "192.168.1.xx"; port = 13001; port2 = 13002 },
+    @{ name = "Node_04"; host = "192.168.1.xx"; port = 14001; port2 = 14002 },
+    @{ name = "SMAPP_Server"; host = "192.168.1.xx"; port = 9092; port2 = 9093 },
+    @{ name = "SMAPP_Home"; host = "localhost"; port = 9092; port2 = 9093 }
+)
+################ Settings Finish ###############
 
 function main {
     [System.Console]::CursorVisible = $false
@@ -79,8 +86,8 @@ function main {
     }
 
     if (Test-Path ".\RewardsTrackApp.tmp") {
-		Clear-Content ".\RewardsTrackApp.tmp"
-	}
+        Clear-Content ".\RewardsTrackApp.tmp"
+    }
 	
     while ($true) {
         
@@ -92,9 +99,9 @@ function main {
         
         foreach ($node in $nodeList) {
 
-  			if ($null -eq $node.name) {
-				$node.name = $node.info	
-			}
+            if ($null -eq $node.name) {
+                $node.name = $node.info	
+            }
             Write-Host  " $($node.name)" -NoNewline -ForegroundColor Cyan
                         
             $status = $null
@@ -120,12 +127,12 @@ function main {
             }
         
             if ($node.online) {
-				if ($null -eq $resultsNodeHighestATX) {
-                	$resultsNodeHighestATX = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 10 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
-            	}
-            	if ($null -eq $epoch) {
-                	$epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
-            	}
+                if ($null -eq $resultsNodeHighestATX) {
+                    $resultsNodeHighestATX = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 10 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
+                }
+                if ($null -eq $epoch) {
+                    $epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
+                }
 			
                 $version = $null
                 $version = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Version")) | ConvertFrom-Json).versionString.value  2>$null
@@ -137,7 +144,7 @@ function main {
                 $eventstream = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.AdminService.EventsStream")) 2>$null
                 $eventstream = $eventstream -split "`n" | Where-Object { $_ }
                 $eligibilities = @()
-				$atxPublished =@()
+                $atxPublished = @()
                 $jsonObject = @()
                 $poetWaitProof = @()
                 foreach ($line in $eventstream) {
@@ -151,12 +158,12 @@ function main {
                             if ($json.eligibilities) {
                                 $eligibilities += $json.eligibilities
                             }
-							if ($json.atxPublished) {
-								$atxPublished += $json.atxPublished
-							}
+                            if ($json.atxPublished) {
+                                $atxPublished += $json.atxPublished
+                            }
                             if ($json.poetWaitProof) {
-								$poetWaitProof += $json.poetWaitProof
-							}
+                                $poetWaitProof += $json.poetWaitProof
+                            }
                         }
                         Catch {
                             # Ignore the error and continue
@@ -183,7 +190,7 @@ function main {
                 else {
                     $node.atx = $atxTarget
                 }
-                if (($null -eq $atxTarget) -and ($null -eq $poetWait)){
+                if (($null -eq $atxTarget) -and ($null -eq $poetWait)) {
                     $node.atx = "-"
                 }
 
@@ -249,8 +256,8 @@ function main {
             $totalLayers = $totalLayers + $node.rewards
             if ($node.layers) {
                 if ($fileFormat -eq 1) {
-					$rewardsTrackApp = @(@{$node.keyFull = $node.layers })
-					Write-Output $rewardsTrackApp | ConvertTo-Json -depth 100 | Out-File -FilePath RewardsTrackApp.tmp -Append
+                    $rewardsTrackApp = @(@{$node.keyFull = $node.layers })
+                    Write-Output $rewardsTrackApp | ConvertTo-Json -depth 100 | Out-File -FilePath RewardsTrackApp.tmp -Append
                 }
                 elseif ($fileFormat -eq 2) {
                     $nodeData = [ordered]@{
@@ -273,22 +280,22 @@ function main {
             }
         }
         if ($rewardsTrackApp -and ($fileFormat -ne 0)) {
-			$files = Get-ChildItem -Path .\ -Filter "RewardsTrackApp_*.json"
-			foreach ($file in $files) {
-				Remove-Item $file.FullName
-			}
-   			$timestamp = Get-Date -Format "HHmm"
+            $files = Get-ChildItem -Path .\ -Filter "RewardsTrackApp_*.json"
+            foreach ($file in $files) {
+                Remove-Item $file.FullName
+            }
+            $timestamp = Get-Date -Format "HHmm"
             if ($fileFormat -eq 1) {
-                $data = (Get-Content RewardsTrackApp.tmp -Raw) -replace '(?m)}\s+{', ',' |ConvertFrom-Json
-				$data | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp_$timestamp.json"
-				Remove-Item ".\RewardsTrackApp.tmp"
+                $data = (Get-Content RewardsTrackApp.tmp -Raw) -replace '(?m)}\s+{', ',' | ConvertFrom-Json
+                $data | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp_$timestamp.json"
+                Remove-Item ".\RewardsTrackApp.tmp"
             }
             elseif ($fileFormat -eq 2) {
                 $rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp_$timestamp.json"
             }
-			elseif (($fileFormat -eq 3)) {
-				$rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "SM-Layers.json"
-			}
+            elseif (($fileFormat -eq 3)) {
+                $rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "SM-Layers.json"
+            }
         }
 			
         # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
