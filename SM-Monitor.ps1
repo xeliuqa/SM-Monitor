@@ -212,7 +212,7 @@ function main {
                     $node.numUnits = $state.opts.numUnits
                             
                     if ($state.state -eq "STATE_IN_PROGRESS") {
-                        $percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 1)
+                        $percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 2)
                         $node.smeshing = "$($percent)%"
                     }
                 }
