@@ -18,7 +18,7 @@ $smhCoinsVisibility = $true # $true or $false.
 $fakeCoins = 0 # For screenshot purposes.  Set to 0 to pull real coins.  FAKE 'EM OUT!  (Example: 2352.24)
 $tableRefreshTimeSeconds = 60 # Time in seconds that the refresh happens.  Lower value = more grpc entries in logs.
 $logoDelay = 3
-$DefaultBackgroundColor = Black # Set to the colour of your console if 'Black' doesn't look good 
+$DefaultBackgroundColor = "Black" # Set to the colour of your console if 'Black' doesn't look good 
 $emailEnable = "False" #True to enable email notification, False to disable
 $myEmail = "my@email.com" #Set your Email for notifications
 $grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in same folder
@@ -73,20 +73,25 @@ function main {
 			if ($status) {
 				Write-Host -NoNewline "." -ForegroundColor Cyan
 				$node.online = "True"
+				$node.connectedPeers = $status.connectedPeers
+				$node.syncedLayer = $status.syncedLayer.number
+				$node.topLayer = $status.topLayer.number
+				$node.verifiedLayer = $status.verifiedLayer.number
 				if ($status.isSynced) {
 					$node.synced = "True"
 					$node.emailsent = ""
 				}
 				else { $node.synced = "False" }
-				$node.connectedPeers = $status.connectedPeers
-				$node.syncedLayer = $status.syncedLayer.number
-				$node.topLayer = $status.topLayer.number
-				$node.verifiedLayer = $status.verifiedLayer.number
 			}
 			else {
 				$node.online = ""
 				$node.smeshing = "Offline"
 				$node.synced = "Offline"
+				$node.connectedPeers = $null
+				$node.syncedLayer = $null
+				$node.topLayer = $null
+				$node.verifiedLayer = $null
+				$node.version = $null
 			}
 		
 			if ($node.online) {
@@ -153,7 +158,7 @@ function main {
 				elseif ($poetWait -and ($null -eq $layers)) {
 					$node.atx = $poetWait
 				} 
-				elseif (!$node.atx) {
+				else {
 					$node.atx = "-"
 				}
 				
@@ -611,7 +616,7 @@ function printSMMonitorLogo {
 
 function applyColumnRules {
 	# Colors: Black, Blue, Cyan, DarkBlue, DarkCyan, DarkGray, DarkGreen, DarkMagenta, DarkRed, DarkYellow, Gray, Green, Magenta, Red, White, Yellow
-	return	$columnRules = @(
+	return	@(
 		@{ Column = "Name"; Value = "*"; ForegroundColor = "Cyan"; BackgroundColor = $DefaultBackgroundColor },
 		@{ Column = "SmesherID"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = $DefaultBackgroundColor },
 		@{ Column = "Host"; Value = "*"; ForegroundColor = "White"; BackgroundColor = $DefaultBackgroundColor },
