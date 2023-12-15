@@ -296,15 +296,6 @@ function main {
                 $coinbase = "($coinbase)"
                 if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
             }
-            elseif ($PSVersionTable.PSVersion.Major -eq 5) {
-                $coinbase = (Invoke-Expression "$grpcurl --plaintext -max-time 10 $($privateOnlineNodes.Host):$($privateOnlineNodes.PortPrivate) spacemesh.v1.SmesherService.Coinbase" | ConvertFrom-Json).accountId.address
-                $command = { & $grpcurl -d '{\"filter\":{\"account_id\":{\"address\":\"$coinbase\"},\"account_data_flags\":4}}' -plaintext localhost:$($privateOnlineNodes.Port) spacemesh.v1.GlobalStateService.AccountDataQuery }
-                $command = $command -replace '\$coinbase', $coinbase
-                $balance = (Invoke-Expression $command | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value
-                $balanceSMH = [string]([math]::Round($balance / 1000000000, 3)) + " SMH"
-                $coinbase = "($coinbase)"
-                if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
-            }
             if ($coinbaseAddressVisibility -eq "partial") {
                 $coinbase = '(' + $($coinbase).Substring($($coinbase).IndexOf(")") - 4, 4) + ')'
             }
