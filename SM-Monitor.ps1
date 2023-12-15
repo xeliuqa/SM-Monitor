@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 <#  ------------------------------------------------------------------------------------------------
 	SM-Monitor: https://github.com/xeliuqa/SM-Monitor
 	  Based on: https://discord.com/channels/623195163510046732/691261331382337586/1142174063293370498
