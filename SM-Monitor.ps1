@@ -243,7 +243,7 @@ function main {
                 PortPrivate = $_.port2
                 Peers       = $_.connectedPeers
                 SU          = $_.numUnits
-                SizeTiB     = $_.numUnits * 64 * 0.001
+                SizeTiB     = [Math]::Round($_.numUnits * 64 * 0.000976563,3)
                 Synced      = $_.synced
                 Layer       = $_.syncedLayer
                 Top         = $_.topLayer
