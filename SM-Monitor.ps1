@@ -1,5 +1,5 @@
 #Requires -Version 7.0
-<#  ------------------------------------------------------------------------------------------------
+<#  -----------------------------------------------------------------------------------------------
 	SM-Monitor: https://github.com/xeliuqa/SM-Monitor
 	  Based on: https://discord.com/channels/623195163510046732/691261331382337586/1142174063293370498
 	  and also: https://github.com/PlainLazy/crypto/blob/main/sm_watcher.ps1
@@ -8,7 +8,7 @@
 	for the various contributions in making this script awesome
 
 	Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
-	--------------------------------------------------------------------------------------------- #>
+	-------------------------------------------------------------------------------------------- #>
 
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
@@ -29,51 +29,51 @@ $fileFormat = 0
 # 1 - an old format used for Spacemesh Reward Tracker App (by BVale)
 # 2 - a new format used for Spacemesh Reward Tracker App (by BVale)
 # 3 - use it for layers tracking website (by PlainLazy: http://fcmx.net/sm-eligibilities/)
-
+    
 $nodeList = @(
-	@{ name = "Node_01"; host = "192.168.1.xx"; port = 11001; port2 = 11002 },
-	@{ name = "Node_02"; host = "192.168.1.xx"; port = 12001; port2 = 12002 },
-	@{ name = "Node_03"; host = "192.168.1.xx"; port = 13001; port2 = 13002 },
-	@{ name = "Node_04"; host = "192.168.1.xx"; port = 14001; port2 = 14002 },
-	@{ name = "SMAPP_Server"; host = "192.168.1.xx"; port = 9092; port2 = 9093 },
-	@{ name = "SMAPP_Home"; host = "localhost"; port = 9092; port2 = 9093 }
+    @{ name = "Node_01"; host = "192.168.1.xx"; port = 11001; port2 = 11002 },
+    @{ name = "Node_02"; host = "192.168.1.xx"; port = 12001; port2 = 12002 },
+    @{ name = "Node_03"; host = "192.168.1.xx"; port = 13001; port2 = 13002 },
+    @{ name = "Node_04"; host = "192.168.1.xx"; port = 14001; port2 = 14002 },
+    @{ name = "SMAPP_Server"; host = "192.168.1.xx"; port = 9092; port2 = 9093 },
+    @{ name = "SMAPP_Home"; host = "localhost"; port = 9092; port2 = 9093 }
 )
 ################ Settings Finish ###############
-
+    
 function main {
     [System.Console]::CursorVisible = $false
     $Stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-
+    
     printSMMonitorLogo
     #Write-Host "Querying nodes..." -NoNewline -ForegroundColor Cyan 2>$null
-
+    
     $gitVersion = Get-gitNewVersion
-
+    
     if (Test-Path ".\RewardsTrackApp.tmp") {
         Clear-Content ".\RewardsTrackApp.tmp"
     }
-
+    
     while ($true) {
-
+    
         $object = @()
         $resultsNodeHighestATX = $null
         $epoch = $null
         $totalLayers = $null
         $rewardsTrackApp = @()
-
+    
         # $nodeList | ForEach-Object   {
         $nodeList | ForEach-Object -ThrottleLimit 16 -Parallel {
             $node = $_
             $grpcurl = $using:grpcurl
-
+    
             if ($null -eq $node.name) {
                 $node.name = $node.info
             }
             #Write-Host  " $($node.name)" -NoNewline -ForegroundColor Cyan
-
+    
             $status = $null
             $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
-
+    
             if ($status) {
                 #Write-Host -NoNewline "." -ForegroundColor Green
                 $node.online = "True"
@@ -97,21 +97,21 @@ function main {
                 $node.verifiedLayer = $null
                 $node.version = $null
             }
-
+    
             if ($node.online) {
-
+    
                 if ($using:queryHighestAtx) {
                     $node.highestAtx = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 10 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
                 }
                 $node.epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
-
+    
                 $version = $null
                 $version = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Version")) | ConvertFrom-Json).versionString.value  2>$null
                 #Write-Host -NoNewline "." -ForegroundColor Green
                 if ($null -ne $version) {
                     $node.version = $version
                 }
-
+    
                 $eventstream = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.AdminService.EventsStream")) 2>$null
                 $eventstream = $eventstream -split "`n" | Where-Object { $_ }
                 $eligibilities = @()
@@ -164,50 +164,50 @@ function main {
                 else {
                     $node.atx = "-"
                 }
-
+    
                 #Uncomment next line if your Smapp using standard configuration -- 1 of 2
                 #if (($node.host -eq "localhost") -Or ($node.host -ne "localhost" -And $node.port2 -ne 9093)){
                 $smeshing = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.IsSmeshing")) | ConvertFrom-Json)	2>$null
-
+    
                 if ($null -ne $smeshing.isSmeshing)
                 { $node.smeshing = "True" } else { $node.smeshing = "False" }
-
+    
                 $state = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus")) | ConvertFrom-Json).status 2>$null
                 #Write-Host -NoNewline "." -ForegroundColor Green
-
+    
                 if ($state) {
                     $node.numUnits = $state.opts.numUnits
-
+    
                     if ($state.state -eq "STATE_IN_PROGRESS") {
                         $percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 2)
                         $node.smeshing = "$($percent)%"
                     }
                 }
-
+    
                 $publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID")) | ConvertFrom-Json).publicKey 2>$null
-
+    
                 if ($publicKey) {
                     $_.key = $publicKey
                 }
-
+    
                 #Uncomment next line if your Smapp using standard configuration -- 2 of 2
                 #}
             }
         }
-
+    
         $object = $nodeList | ForEach-Object {
-
-
+    
+    
             if ($epoch -lt $_.epoch.number) {
                 $epoch = $_.epoch.number
             }
-            
+                
             $fullkey = (B64_to_Hex -id2convert $_.key)
             # Extract last 5 digits from SmesherID
             $_.key = $fullkey.substring($fullkey.length - 5, 5)
-            $ErrorActionPreference= 'silentlycontinue'
-        
-
+            $ErrorActionPreference = 'silentlycontinue'
+            
+    
             $totalLayers = $totalLayers + $_.rewards
             if ($_.layers) {
                 if ($fileFormat -eq 1) {
@@ -233,8 +233,8 @@ function main {
                     $rewardsTrackApp += $nodeData
                 }
             }
-
-
+    
+    
             [PSCustomObject]@{
                 Name        = $_.name
                 SmesherID   = $_.key
@@ -243,7 +243,7 @@ function main {
                 PortPrivate = $_.port2
                 Peers       = $_.connectedPeers
                 SU          = $_.numUnits
-                SizeTiB     = [Math]::Round($_.numUnits * 64 * 0.000976563,3)
+                SizeTiB     = [Math]::Round($_.numUnits * 64 * 0.000976563, 3)
                 Synced      = $_.synced
                 Layer       = $_.syncedLayer
                 Top         = $_.topLayer
@@ -254,7 +254,7 @@ function main {
                 ELG         = $_.atx
             } 
         }
-
+    
         if ($rewardsTrackApp -and ($fileFormat -ne 0)) {
             $files = Get-ChildItem -Path .\ -Filter "RewardsTrackApp_*.json"
             foreach ($file in $files) {
@@ -273,7 +273,7 @@ function main {
                 $rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "SM-Layers.json"
             }
         }
-
+    
         # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
         $filterObjects = $object | Where-Object { $_.Synced -match "True" -and $_.Smeshing -match "True" } # -and $_.Host -match "localhost"
         if ($PSVersionTable.PSVersion.Major -eq 5) {
@@ -285,7 +285,7 @@ function main {
         else {
             $privateOnlineNodes = $null
         }
-
+    
         # If private nodes are found, determine the PS version and execute corresponding grpcurl if statement. Else skip.
         if ($privateOnlineNodes.name.count -gt 0) {
             if ($PSVersionTable.PSVersion.Major -ge 7) {
@@ -307,13 +307,13 @@ function main {
             $coinbase = ""
             $balanceSMH = "You must have at least one synced 'localhost' node defined...or Install PowerShell 7"
         }
-
+    
         if ($smhCoinsVisibility -eq $false) {
             $balanceSMH = "----.--- SMH"
         }
-
+    
         $columnRules = applyColumnRules
-
+    
         Clear-Host
         $object | Select-Object Name, SmesherID, Host, Port, Peers, SU, SizeTiB, Synced, Layer, Top, Verified, Version, Smeshing, RWD, ELG | ColorizeMyObject -ColumnRules $columnRules
         Write-Host `n
@@ -331,10 +331,10 @@ function main {
         }
         Write-Host "--------------------------------------------------------------------------------" -ForegroundColor Yellow
         Write-Host "ELG - The number of Epoch when the node will be eligible for rewards. " -ForegroundColor DarkGray
-
+    
         Write-Host `n
         $newline = "`r`n"
-
+    
         #Version Check
         if ($null -ne $gitVersion) {
             $currentVersion = $gitVersion -replace "[^.0-9]"
@@ -347,12 +347,12 @@ function main {
                 }
             }
         }
-
+    
         if ("Offline" -in $object.synced) {
             Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Offline!" -ForegroundColor DarkYellow
             if ($emailEnable -eq "True" -And (isValidEmail($myEmail))) {
                 $Body = "Warning, some nodes are offline!"
-
+    
                 foreach ($node in $nodeList) {
                     if (!$node.online) {
                         $Body = $body + $newLine + $node.name + " " + $node.Host + " " + $node.Smeshing
@@ -362,18 +362,18 @@ function main {
                         }
                     }
                 }
-
+    
                 if ($OKtoSend) {
                     $From = "001smmonitor@gmail.com"
                     $To = $myEmail
                     $Subject = "Your Spacemesh node is offline"
-
+    
                     # Define the SMTP server details
                     $SMTPServer = "smtp.gmail.com"
                     $SMTPPort = 587
                     $SMTPUsername = "001smmonitor@gmail.com"
                     $SMTPPassword = "uehd zqix qrbh gejb"
-
+    
                     # Create a new email object
                     $Email = New-Object System.Net.Mail.MailMessage
                     $Email.From = $From
@@ -382,12 +382,12 @@ function main {
                     $Email.Body = $Body
                     # Uncomment below to send HTML formatted email
                     #$Email.IsBodyHTML = $true
-
+    
                     # Create an SMTP client object and send the email
                     $SMTPClient = New-Object System.Net.Mail.SmtpClient($SMTPServer, $SMTPPort)
                     $SMTPClient.EnableSsl = $true
                     $SMTPClient.Credentials = New-Object System.Net.NetworkCredential($SMTPUsername, $SMTPPassword)
-
+    
                     Try {
                         $SMTPClient.Send($Email)
                     }
@@ -401,15 +401,15 @@ function main {
                 }
             }
         }
-
+    
         $currentDate = Get-Date -Format HH:mm:ss
         # Refresh
         Write-Host `n
         Write-Host "Last refresh: " -ForegroundColor Yellow -nonewline; Write-Host "$currentDate" -ForegroundColor Green;
-
+    
         # Get original position of cursor
         $originalPosition = $host.UI.RawUI.CursorPosition
-
+    
         # Refresh Timeout
         $iterations = [math]::Ceiling($tableRefreshTimeSeconds / 5)
         for ($i = 0; $i -lt $iterations; $i++) {
@@ -421,7 +421,7 @@ function main {
         [System.Console]::Write($clearmsg)
         [Console]::SetCursorPosition($originalPosition.X, $originalPosition.Y)
         Write-Host "Updating..." -NoNewline -ForegroundColor Cyan
-
+    
         $HoursElapsed = $Stopwatch.Elapsed.TotalHours
         if ($HoursElapsed -ge 1) {
             $gitNewVersion = Get-gitNewVersion
@@ -432,11 +432,11 @@ function main {
         }
     }
 }
-
+    
 function IsValidEmail {
     param([string]$Email)
     $Regex = '^([\w-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([\w-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$'
-
+    
     try {
         $obj = [mailaddress]$Email
         if ($obj.Address -match $Regex) {
@@ -448,7 +448,7 @@ function IsValidEmail {
         return $False
     }
 }
-
+    
 function B64_to_Hex {
     param (
         [Parameter(Position = 0, Mandatory = $true)]
@@ -468,49 +468,49 @@ function ColorizeMyObject {
     param (
         [Parameter(ValueFromPipeline = $true)]
         $InputObject,
-
+    
         [Parameter(Mandatory = $true)]
         [System.Collections.ArrayList]$ColumnRules
     )
-
+    
     begin {
         $dataBuffer = @()
     }
-
+    
     process {
         $dataBuffer += $InputObject
     }
-
+    
     end {
         $headers = $dataBuffer[0].PSObject.Properties.Name
-
+    
         $maxWidths = @{}
         foreach ($header in $headers) {
             $headerLength = "$header".Length
             $dataMaxLength = ($dataBuffer | ForEach-Object { "$($_.$header)".Length } | Measure-Object -Maximum).Maximum
             $maxWidths[$header] = [Math]::Max($headerLength, $dataMaxLength)
         }
-
+    
         $headers | ForEach-Object {
             $paddedHeader = $_.PadRight($maxWidths[$_])
             Write-Host $paddedHeader -NoNewline;
             Write-Host "  " -NoNewline
         }
         Write-Host ""
-
+    
         $headers | ForEach-Object {
             $dashes = '-' * $maxWidths[$_]
             Write-Host $dashes -NoNewline
             Write-Host "  " -NoNewline
         }
         Write-Host ""
-
+    
         foreach ($row in $dataBuffer) {
             foreach ($header in $headers) {
                 $propertyValue = "$($row.$header)"
                 $foregroundColor = $null
                 $backgroundColor = $null
-
+    
                 foreach ($rule in $ColumnRules) {
                     if ($header -eq $rule.Column) {
                         if ($propertyValue -like $rule.Value) {
@@ -522,9 +522,9 @@ function ColorizeMyObject {
                         }
                     }
                 }
-
+    
                 $paddedValue = $propertyValue.PadRight($maxWidths[$header])
-
+    
                 if ($foregroundColor -or $backgroundColor) {
                     if ($backgroundColor) {
                         Write-Host $paddedValue -NoNewline -ForegroundColor $foregroundColor -BackgroundColor $backgroundColor
@@ -536,14 +536,14 @@ function ColorizeMyObject {
                 else {
                     Write-Host $paddedValue -NoNewline
                 }
-
+    
                 Write-Host "  " -NoNewline
             }
             Write-Host ""
         }
     }
 }
-
+    
 function Get-gitNewVersion {
     .{
         $gitNewVersion = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/spacemeshos/go-spacemesh/releases/latest" 2>$null
@@ -553,7 +553,7 @@ function Get-gitNewVersion {
     } | Out-Null
     return $gitNewVersion
 }
-
+    
 function printSMMonitorLogo {
     Clear-Host
     $foregroundColor = "Green"
@@ -562,26 +562,26 @@ function printSMMonitorLogo {
     $colDelay = 0  # milliseconds
     $logoWidth = 86  # Any time you change the logo, all rows have to be the exact width.  Then assign to this var.
     $logoHeight = 9  # Any time you change the logo, recount the rows and assign to this var.
-
+    
     $screenWidth = $host.UI.RawUI.WindowSize.Width
     $screenHeight = $host.UI.RawUI.WindowSize.Height
     $horizontalOffset = [Math]::Max(0, [Math]::Ceiling(($screenWidth - $logoWidth) / 2))
     $verticalOffset = [Math]::Max(0, [Math]::Ceiling(($screenHeight - $logoHeight) / 2))
-
+    
     $asciiArt = @"
-      _________   _____               _____                 __  __                    
-/\   /   _____/  /     \             /     \   ____   ____ |__|/  |_  ___________   /\
-\/   \_____  \  /  \ /  \   ______  /  \ /  \ /  _ \ /    \|  \   __\/  _ \_  __ \  \/
-/\   /        \/    Y    \ /_____/ /    Y    (  <_> )   |  \  ||  | (  <_> )  | \/  /\
-\/  /_______  /\____|__  /         \____|__  /\____/|___|  /__||__|  \____/|__|     \/
-        \/         \/                  \/            \/                               
-                 _____________________________________________________________________     
-                /_____/_____/_____/_____/_____/  https://github.com/xeliuqa/SM-Monitor     
-                                                              https://www.spacemesh.io     
+          _________   _____               _____                 __  __                    
+    /\   /   _____/  /     \             /     \   ____   ____ |__|/  |_  ___________   /\
+    \/   \_____  \  /  \ /  \   ______  /  \ /  \ /  _ \ /    \|  \   __\/  _ \_  __ \  \/
+    /\   /        \/    Y    \ /_____/ /    Y    (  <_> )   |  \  ||  | (  <_> )  | \/  /\
+    \/  /_______  /\____|__  /         \____|__  /\____/|___|  /__||__|  \____/|__|     \/
+            \/         \/                  \/            \/                               
+                     _____________________________________________________________________     
+                    /_____/_____/_____/_____/_____/  https://github.com/xeliuqa/SM-Monitor     
+                                                                  https://www.spacemesh.io     
 "@
-
+    
     $lines = $asciiArt -split "`n"
-
+    
     for ($col = 1; $col -le $lines[0].Length; $col++) {
         for ($row = 1; $row -le $lines.Length; $row++) {
             $char = if ($col - 1 -lt $lines[$row - 1].Length) { $lines[$row - 1][$col - 1] } else { ' ' }
@@ -608,13 +608,13 @@ function printSMMonitorLogo {
         }
         Start-Sleep -Milliseconds $colDelay
     }
-
+    
     $CursorPosition = [System.Management.Automation.Host.Coordinates]::new(0, $lines.Length + $verticalOffset + 1)
     $host.UI.RawUI.CursorPosition = $CursorPosition
     # Start-Sleep $logoDelay
     # Clear-Host
 }
-
+    
 function applyColumnRules {
     # Colors: Black, Blue, Cyan, DarkBlue, DarkCyan, DarkGray, DarkGreen, DarkMagenta, DarkRed, DarkYellow, Gray, Green, Magenta, Red, White, Yellow
     return	@(
@@ -643,5 +643,5 @@ function applyColumnRules {
         @{ Column = "ELG"; Value = $poetWait; ForegroundColor = "Yellow"; BackgroundColor = $DefaultBackgroundColor }
     )
 }
-
-main
+    
+main    
