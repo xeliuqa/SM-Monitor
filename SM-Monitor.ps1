@@ -17,12 +17,12 @@ $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 $coinbaseAddressVisibility = "partial" # "partial", "full", "hidden"
 $smhCoinsVisibility = $true # $true or $false.
 $fakeCoins = 0 # For screenshot purposes.  Set to 0 to pull real coins.  FAKE 'EM OUT!  (Example: 2352.24)
-$tableRefreshTimeSeconds = 60 # Time in seconds that the refresh happens.  Lower value = more grpc entries in logs.
+$tableRefreshTimeSeconds = 300 # Time in seconds that the refresh happens.  Lower value = more grpc entries in logs.
 $DefaultBackgroundColor = "Black" # Set to the colour of your console if 'Black' doesn't look good 
 $emailEnable = "False" #True to enable email notification, False to disable
 $myEmail = "my@email.com" #Set your Email for notifications
 $grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in same folder
-$queryHighestAtx = $false
+$queryHighestAtx = "False"
 $fileFormat = 0
 # FileFormat variable sets the type of the file you want to export
 # 0 - doesn't export
