@@ -1,13 +1,19 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
-	SM-Monitor: https://github.com/xeliuqa/SM-Monitor
-	  Based on: https://discord.com/channels/623195163510046732/691261331382337586/1142174063293370498
+<#PSScriptInfo    
+.VERSION 2.30
+.GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
+.AUTHOR
+.PROJECTURI https://github.com/xeliuqa/PowerScript
+
+SM-Monitor: https://github.com/xeliuqa/SM-Monitor
+Based on: https://discord.com/channels/623195163510046732/691261331382337586/1142174063293370498
 	  and also: https://github.com/PlainLazy/crypto/blob/main/sm_watcher.ps1
 	
-	With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa
+With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa
 	for the various contributions in making this script awesome
 
-	Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
+Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 	-------------------------------------------------------------------------------------------- #>
 
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
