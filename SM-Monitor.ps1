@@ -1,10 +1,10 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 2.30
+.VERSION 2.31
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
-.PROJECTURI https://github.com/xeliuqa/PowerScript
+.PROJECTURI https://github.com/xeliuqa/SM-Monitor
 
 SM-Monitor: https://github.com/xeliuqa/SM-Monitor
 Based on: https://discord.com/channels/623195163510046732/691261331382337586/1142174063293370498
