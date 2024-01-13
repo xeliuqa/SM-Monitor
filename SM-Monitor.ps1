@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 2.31
+.VERSION 2.32
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -28,7 +28,7 @@ $DefaultBackgroundColor = "Black" # Set to the colour of your console if 'Black'
 $emailEnable = "False" #True to enable email notification, False to disable
 $myEmail = "my@email.com" #Set your Email for notifications
 $grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in same folder
-$queryHighestAtx = "False"
+$queryHighestAtx = "False" # Expect a long waiting time if you set it to True
 $fileFormat = 0
 # FileFormat variable sets the type of the file you want to export
 # 0 - doesn't export
@@ -106,8 +106,8 @@ function main {
     
             if ($node.online) {
     
-                if ($using:queryHighestAtx) {
-                    $node.highestAtx = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 10 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
+                if ($using:queryHighestAtx -eq "True") {
+                    $node.highestAtx = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 60 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
                 }
                 $node.epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
     
@@ -203,16 +203,20 @@ function main {
     
         $object = $nodeList | ForEach-Object {
     
+	if (($_.synced -eq "True") -and (!$resultsNodeHighestATX)) {
+		$resultsNodeHighestATX = $_.highestAtx
+	}
     
             if ($epoch -lt $_.epoch.number) {
                 $epoch = $_.epoch.number
             }
                 
+			if ($_.key) {
             $fullkey = (B64_to_Hex -id2convert $_.key)
             # Extract last 5 digits from SmesherID
             $_.key = $fullkey.substring($fullkey.length - 5, 5)
             $ErrorActionPreference = 'silentlycontinue'
-            
+			}
     
             $totalLayers = $totalLayers + $_.rewards
             if ($_.layers) {
@@ -320,20 +324,20 @@ function main {
     
         $columnRules = applyColumnRules
     
-        Clear-Host
+        #Clear-Host
         $object | Select-Object Name, SmesherID, Host, Port, Peers, SU, SizeTiB, Synced, Layer, Top, Verified, Version, Smeshing, RWD, ELG | ColorizeMyObject -ColumnRules $columnRules
         Write-Host `n
         Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
         Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch -ForegroundColor Green
         Write-Host " Total Layers: " -ForegroundColor Cyan -nonewline; Write-Host ($totalLayers) -ForegroundColor Yellow -nonewline; Write-Host " Layers"
         Write-Host "      Balance: " -ForegroundColor Cyan -NoNewline; Write-Host "$balanceSMH" -ForegroundColor White -NoNewline; Write-Host " $($coinbase)" -ForegroundColor Cyan
-        if ($queryHighestAtx) {
+        if ($queryHighestAtx -eq "True") {
             if ($null -ne $resultsNodeHighestATX) {
                 Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $resultsNodeHighestATX.id.id) -ForegroundColor Green
-            }
-            Write-Host "ATX Base64_ID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.id.id -ForegroundColor Green
-            Write-Host "        Layer: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.layer.number -ForegroundColor Green
-            Write-Host "     NumUnits: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.numUnits -ForegroundColor Green
+				#Write-Host "ATX Base64_ID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.id.id -ForegroundColor Green
+				#Write-Host "        Layer: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.layer.number -ForegroundColor Green
+				#Write-Host "     NumUnits: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.numUnits -ForegroundColor Green
+			}
         }
         Write-Host "--------------------------------------------------------------------------------" -ForegroundColor Yellow
         Write-Host "ELG - The number of Epoch when the node will be eligible for rewards. " -ForegroundColor DarkGray
