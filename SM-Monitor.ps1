@@ -324,7 +324,7 @@ function main {
     
         $columnRules = applyColumnRules
     
-        #Clear-Host
+        Clear-Host
         $object | Select-Object Name, SmesherID, Host, Port, Peers, SU, SizeTiB, Synced, Layer, Top, Verified, Version, Smeshing, RWD, ELG | ColorizeMyObject -ColumnRules $columnRules
         Write-Host `n
         Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
