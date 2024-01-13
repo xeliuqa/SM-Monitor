@@ -28,7 +28,7 @@ $DefaultBackgroundColor = "Black" # Set to the colour of your console if 'Black'
 $emailEnable = "False" #True to enable email notification, False to disable
 $myEmail = "my@email.com" #Set your Email for notifications
 $grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in same folder
-$queryHighestAtx = "False" # Expect a long waiting time if you set it to True
+$queryHighestAtx = "False" # Expect a long waiting time if you set it to "True"
 $fileFormat = 0
 # FileFormat variable sets the type of the file you want to export
 # 0 - doesn't export
@@ -58,11 +58,15 @@ function main {
     if (Test-Path ".\RewardsTrackApp.tmp") {
         Clear-Content ".\RewardsTrackApp.tmp"
     }
+    if ($queryHighestAtx -eq "True") {
+		Write-Host `n
+		Write-Host `n
+		Write-Host "Requesting Highest ATX can take up to 3 minutes. Please wait ..." -ForegroundColor Gray -nonewline;
+	}
     
     while ($true) {
     
         $object = @()
-        $resultsNodeHighestATX = $null
         $epoch = $null
         $totalLayers = $null
         $rewardsTrackApp = @()
@@ -107,7 +111,7 @@ function main {
             if ($node.online) {
     
                 if ($using:queryHighestAtx -eq "True") {
-                    $node.highestAtx = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 60 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
+                    $node.highestAtx = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 150 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
                 }
                 $node.epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
     
@@ -438,6 +442,7 @@ function main {
             if ($gitNewVersion) {
                 $gitVersion = $gitNewVersion
             }
+            $resultsNodeHighestATX = $null
             $Stopwatch.Restart()
         }
     }
