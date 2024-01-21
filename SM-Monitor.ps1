@@ -58,7 +58,7 @@ function main {
 	$grpcurl = $PSScriptRoot + "\grpcurl.exe"
 	$syncNodes = [System.Collections.Hashtable]::Synchronized(@{})
     [System.Console]::CursorVisible = $false
-	#$ErrorActionPreference = 'silentlycontinue'
+	$ErrorActionPreference = 'silentlycontinue'
     $OneHourTimer = [System.Diagnostics.Stopwatch]::StartNew()
 	$tableRefreshTimer = [System.Diagnostics.Stopwatch]::StartNew()
 
