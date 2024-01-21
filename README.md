@@ -4,7 +4,7 @@ Simple monitor for Spacemesh nodes<br>
 With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa<br>
 for the various contributions in making this script awesome
 <br>
-[![IMAGE ALT TEXT HERE](https://github.com/xeliuqa/SM-Monitor/blob/main/SM-Monitor.jpg)]
+[!(https://github.com/xeliuqa/SM-Monitor/blob/main/SM-Monitor.jpg)]
 <br>
 
 To use this monitor you need to download GRPCurl<br> 
