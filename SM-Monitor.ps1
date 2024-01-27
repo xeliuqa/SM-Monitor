@@ -391,10 +391,10 @@ function main {
 
         #Version Check
         if ($null -ne $gitVersion) {
-            $currentVersion = $gitVersion -replace "[^.0-9]"
+            $currentVersion = ($gitVersion -split "-")[0] -replace "[^.0-9]"
             Write-Host "Github Go-Spacemesh version: $($gitVersion)" -ForegroundColor Green
             foreach ($node in ($object | Where-Object { $_.synced -notmatch "Offline" })) {
-                $node.version = $node.version -replace "[^.0-9]"
+                $node.version = ($node.version -split "-")[0] -replace "[^.0-9]"
                 if ([version]$node.version -lt [version]$currentVersion) {
                     Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Outdated!" -ForegroundColor DarkYellow
                     break
