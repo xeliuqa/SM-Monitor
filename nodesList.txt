@@ -1,0 +1,8 @@
+@(
+	@{ name = "Node_01"; host = "192.168.1.xx"; port = 11001; port2 = 11002 },
+	@{ name = "Node_02"; host = "192.168.1.xx"; port = 12001; port2 = 12002 },
+	@{ name = "Node_03"; host = "192.168.1.xx"; port = 13001; port2 = 13002 },
+	@{ name = "Node_04"; host = "192.168.1.xx"; port = 14001; port2 = 14002 },
+	@{ name = "SMAPP_Server"; host = "192.168.1.xx"; port = 9092; port2 = 9093 },
+	@{ name = "SMAPP_Home"; host = "localhost"; port = 9092; port2 = 9093 }
+)
