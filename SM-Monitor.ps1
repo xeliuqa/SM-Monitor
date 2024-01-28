@@ -1,36 +1,50 @@
 #Requires -Version 7.0
-<#  ------------------------------------------------------------------------------------------------
-	SM-Monitor: https://github.com/xeliuqa/SM-Monitor
-	  Based on: https://discord.com/channels/623195163510046732/691261331382337586/1142174063293370498
+<#  -----------------------------------------------------------------------------------------------
+<#PSScriptInfo    
+.VERSION 3.00
+.GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
+.AUTHOR
+.PROJECTURI https://github.com/xeliuqa/SM-Monitor
+
+SM-Monitor: https://github.com/xeliuqa/SM-Monitor
+Based on: https://discord.com/channels/623195163510046732/691261331382337586/1142174063293370498
 	  and also: https://github.com/PlainLazy/crypto/blob/main/sm_watcher.ps1
 	
-	With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa
+With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa
 	for the various contributions in making this script awesome
 
-	Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
-	--------------------------------------------------------------------------------------------- #>
+Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
+	-------------------------------------------------------------------------------------------- #>
 
-$host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
+    $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 
-############## General Settings  ##############
-$coinbaseAddressVisibility = "partial" # "partial", "full", "hidden"
-$smhCoinsVisibility = $true # $true or $false.
-$fakeCoins = 0 # For screenshot purposes.  Set to 0 to pull real coins.  FAKE 'EM OUT!  (Example: 2352.24)
-$tableRefreshTimeSeconds = 60 # Time in seconds that the refresh happens.  Lower value = more grpc entries in logs.
-$DefaultBackgroundColor = "Black" # Set to the colour of your console if 'Black' doesn't look good 
-$emailEnable = "False" #True to enable email notification, False to disable
-$myEmail = "my@email.com" #Set your Email for notifications
-$grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in same folder
-$queryHighestAtx = $false
-$fileFormat = 0
-# FileFormat variable sets the type of the file you want to export
-# 0 - doesn't export
-# 1 - an old format used for Spacemesh Reward Tracker App (by BVale)
-# 2 - a new format used for Spacemesh Reward Tracker App (by BVale)
-# 3 - use it for layers tracking website (by PlainLazy: http://fcmx.net/sm-eligibilities/)
-
-$nodeList = @(
+    ############## General Settings  ##############
+    $showWalletBalance = "True" # "True" or "False"
+    $coinbaseAddressVisibility = "partial" # "partial", "full", "hidden"
+    $fakeCoins = 0 # For screenshot purposes.  Set to 0 to pull real coins.  FAKE 'EM OUT!  (Example: 2352.24)
+    
+    $tableRefreshTime = 300 # Time in seconds that the refresh happens.  Lower value = more grpc entries in logs.
+    $DefaultBackgroundColor = "Black" # Set to the colour of your console if 'Black' doesn't look good
+    
+    $emailEnable = "False" # "True" to enable email notification, "True" or "False"
+    $myEmail = "my@email.com" #Set your Email for notifications
+    
+    $ShowPorts = "False" # True to show node's ports. "True" or "False"
+    $queryHighestAtx = "False" # "True" to request for Highest ATX. "True" or "False"
+    $checkIfBanned = "True" # "True" if you want to check if the node is banned. "True" or "False"
+    $showELG = "True"  # "True" if you want to show the number of Epoch when the node will be eligible for rewards. "True" or "False"
+    
+    #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    $fileFormat = 0
+    # FileFormat variable sets the type of the file you want to export
+    # 0 - doesn't export
+    # 1 - an old format used for Spacemesh Reward Tracker App (by BVale)
+    # 2 - a new format used for Spacemesh Reward Tracker App (by BVale)
+    # 3 - use it for layers tracking website (by PlainLazy: http://fcmx.net/sm-eligibilities/)
+    #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    
+    $nodeList = @(
 	@{ name = "Node_01"; host = "192.168.1.xx"; port = 11001; port2 = 11002 },
 	@{ name = "Node_02"; host = "192.168.1.xx"; port = 12001; port2 = 12002 },
 	@{ name = "Node_03"; host = "192.168.1.xx"; port = 13001; port2 = 13002 },
@@ -41,11 +55,14 @@ $nodeList = @(
 ################ Settings Finish ###############
 
 function main {
+	$grpcurl = $PSScriptRoot + "\grpcurl.exe"
+	$syncNodes = [System.Collections.Hashtable]::Synchronized(@{})
     [System.Console]::CursorVisible = $false
-    $Stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+	$ErrorActionPreference = 'silentlycontinue'
+    $OneHourTimer = [System.Diagnostics.Stopwatch]::StartNew()
+	$tableRefreshTimer = [System.Diagnostics.Stopwatch]::StartNew()
 
     printSMMonitorLogo
-    #Write-Host "Querying nodes..." -NoNewline -ForegroundColor Cyan 2>$null
 
     $gitVersion = Get-gitNewVersion
 
@@ -53,29 +70,28 @@ function main {
         Clear-Content ".\RewardsTrackApp.tmp"
     }
 
+	$nodeList | ForEach-Object { $syncNodes[$_.name] = $_ }
+
     while ($true) {
 
         $object = @()
-        $resultsNodeHighestATX = $null
         $epoch = $null
         $totalLayers = $null
         $rewardsTrackApp = @()
 
-        # $nodeList | ForEach-Object   {
-        $nodeList | ForEach-Object -ThrottleLimit 16 -Parallel {
+        $syncNodes.Values | ForEach-Object -ThrottleLimit 16 -Parallel {
             $node = $_
             $grpcurl = $using:grpcurl
+			$syncNodesCopy = $using:syncNodes
 
             if ($null -eq $node.name) {
                 $node.name = $node.info
             }
-            #Write-Host  " $($node.name)" -NoNewline -ForegroundColor Cyan
 
             $status = $null
-            $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
+            $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
 
             if ($status) {
-                #Write-Host -NoNewline "." -ForegroundColor Green
                 $node.online = "True"
                 $node.connectedPeers = $status.connectedPeers
                 $node.syncedLayer = $status.syncedLayer.number
@@ -100,21 +116,18 @@ function main {
 
             if ($node.online) {
 
-                if ($using:queryHighestAtx) {
-                    $node.highestAtx = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 10 $($node.host):$($node.port) spacemesh.v1.ActivationService.Highest")) | ConvertFrom-Json).atx 2>$null
-                }
-                $node.epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
+                $node.epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
 
                 $version = $null
-                $version = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port) spacemesh.v1.NodeService.Version")) | ConvertFrom-Json).versionString.value  2>$null
-                #Write-Host -NoNewline "." -ForegroundColor Green
+                $version = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.NodeService.Version")) | ConvertFrom-Json).versionString.value  2>$null
+
                 if ($null -ne $version) {
                     $node.version = $version
                 }
 
-                $eventstream = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.AdminService.EventsStream")) 2>$null
+                $eventstream = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.AdminService.EventsStream")) 2>$null
                 $eventstream = $eventstream -split "`n" | Where-Object { $_ }
-                $eligibilities = @()
+                $node.eligibilities = @()
                 $atxPublished = @()
                 $jsonObject = @()
                 $poetWaitProof = @()
@@ -158,21 +171,21 @@ function main {
                 if ($atxTarget) {
                     $node.atx = $atxTarget
                 }
-                elseif ($poetWait -and ($null -eq $layers)) {
+                elseif ($poetWait ) { #-and ($null -eq $layers)
                     $node.atx = $poetWait
                 }
                 else {
-                    $node.atx = "-"
+                    $node.atx = " -"
                 }
 
                 #Uncomment next line if your Smapp using standard configuration -- 1 of 2
                 #if (($node.host -eq "localhost") -Or ($node.host -ne "localhost" -And $node.port2 -ne 9093)){
-                $smeshing = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.IsSmeshing")) | ConvertFrom-Json)	2>$null
+                $smeshing = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.IsSmeshing")) | ConvertFrom-Json)	2>$null
 
                 if ($null -ne $smeshing.isSmeshing)
                 { $node.smeshing = "True" } else { $node.smeshing = "False" }
 
-                $state = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus")) | ConvertFrom-Json).status 2>$null
+                $state = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus")) | ConvertFrom-Json).status 2>$null
                 #Write-Host -NoNewline "." -ForegroundColor Green
 
                 if ($state) {
@@ -184,75 +197,92 @@ function main {
                     }
                 }
 
-                $publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 3 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID")) | ConvertFrom-Json).publicKey 2>$null
+                $publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID")) | ConvertFrom-Json).publicKey 2>$null
 
                 if ($publicKey) {
-                    $_.key = $publicKey
+                    $node.publicKey = $publicKey
                 }
 
                 #Uncomment next line if your Smapp using standard configuration -- 2 of 2
                 #}
             }
+
+			if (($using:checkIfBanned -eq "True") -and !$node.ban){
+				if ($node.publicKey) {
+					$publicKeylow = [System.BitConverter]::ToString([System.Convert]::FromBase64String($node.publicKey)).Replace("-", "").ToLower()
+					$response = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.MeshService.MalfeasanceStream")) 2>$null
+					if ($response) {
+						if ($response -match $publicKeylow) {
+							$node.ban = "yes"
+						} else {
+							$node.ban = "no"
+						}
+					} else {$node.ban = " ."}
+				} else {$node.ban = " -"}
+			}
+
+			$syncNodesCopy[$_.name]= $node
         }
 
-        $object = $nodeList | ForEach-Object {
+		$nodeList | ForEach-Object {
+			$node = $syncNodes[$_.name]
 
-
-            if ($epoch -lt $_.epoch.number) {
-                $epoch = $_.epoch.number
+            if ($epoch -lt $node.epoch.number) {
+                $epoch = $node.epoch.number
             }
-            
-            $fullkey = (B64_to_Hex -id2convert $_.key)
-            # Extract last 5 digits from SmesherID
-            $_.key = $fullkey.substring($fullkey.length - 5, 5)
-            $ErrorActionPreference= 'silentlycontinue'
-        
 
-            $totalLayers = $totalLayers + $_.rewards
-            if ($_.layers) {
+			if ($node.publicKey -and !$node.shortKey) {
+				$node.fullkey = (B64_to_Hex -id2convert $node.publicKey)
+				# Extract last 5 digits from SmesherID
+				$node.shortKey = $node.fullkey.substring($node.fullkey.length - 5, 5)
+			}
+
+            $totalLayers = $totalLayers + $node.rewards
+            if ($node.layers) {
                 if ($fileFormat -eq 1) {
-                    $rewardsTrackApp = @(@{$fullkey = $_.layers })
+                    $rewardsTrackApp = @(@{$node.fullkey = $node.layers })
                     Write-Output $rewardsTrackApp | ConvertTo-Json -depth 100 | Out-File -FilePath RewardsTrackApp.tmp -Append
                 }
                 elseif ($fileFormat -eq 2) {
                     $nodeData = [ordered]@{
-                        "nodeName"      = $_.name;
-                        "nodeID"        = $fullkey;
-                        "eligibilities" = $_.layers
+                        "nodeName"      = $node.name;
+                        "nodeID"        = $node.fullkey;
+                        "eligibilities" = $node.layers
                     }
                     $rewardsTrackApp += $nodeData
                 }
-                elseif ($fileFormat -eq 3) {
-                    $layers = $_.layers | ForEach-Object { $_.layer }
-                    $layers = $layers | Sort-Object
-                    $layersString = $layers -join ','
-                    $nodeData = [ordered]@{
-                        "nodeName"      = $_.name;
-                        "eligibilities" = $layersString
-                    }
-                    $rewardsTrackApp += $nodeData
-                }
+				elseif ($fileFormat -eq 3) {
+					$layers = $node.layers | ForEach-Object { $_.layer }
+					$layers = $layers | Sort-Object
+					$layersString = $layers -join ','
+					$nodeData = [ordered]@{
+						"nodeName"      = $node.name;
+						"eligibilities" = $layersString
+					}
+					$rewardsTrackApp += $nodeData
+				}
             }
 
-
-            [PSCustomObject]@{
-                Name        = $_.name
-                SmesherID   = $_.key
-                Host        = $_.host
-                Port        = $_.port
-                PortPrivate = $_.port2
-                Peers       = $_.connectedPeers
-                SU          = $_.numUnits
-                SizeTiB     = [Math]::Round($_.numUnits * 64 * 0.000976563,3)
-                Synced      = $_.synced
-                Layer       = $_.syncedLayer
-                Top         = $_.topLayer
-                Verified    = $_.verifiedLayer
-                Version     = $_.version
-                Smeshing    = $_.smeshing
-                RWD         = $_.rewards
-                ELG         = $_.atx
-            } 
+            $o = [PSCustomObject]@{
+                Name        = $node.name
+                NodeID   = $node.shortKey
+                Host        = $node.host
+                Port        = $node.port
+                Port2 = $node.port2
+                Peers       = $node.connectedPeers
+                SU          = $node.numUnits
+                SizeTiB     = [Math]::Round($node.numUnits * 64 * 0.0009765625, 3)
+                Synced      = $node.synced
+                Layer       = $node.syncedLayer
+                Top         = $node.topLayer
+                Verified    = $node.verifiedLayer
+                Version     = $node.version
+                Smeshing    = $node.smeshing
+                RWD         = $node.rewards
+                ELG         = $node.atx
+				BAN = $node.ban
+            }
+			$object += $o
         }
 
         if ($rewardsTrackApp -and ($fileFormat -ne 0)) {
@@ -274,11 +304,9 @@ function main {
             }
         }
 
+        if ($showWalletBalance -eq "True") {
         # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
         $filterObjects = $object | Where-Object { $_.Synced -match "True" -and $_.Smeshing -match "True" } # -and $_.Host -match "localhost"
-        if ($PSVersionTable.PSVersion.Major -eq 5) {
-            $filterObjects = $filterObjects | Where-Object { $_.Host -match "localhost" -or $_.Host -match "127.0.0.1" }
-        }
         if ($filterObjects) {
             $privateOnlineNodes = $filterObjects[0] #custom setting for me
         }
@@ -288,14 +316,12 @@ function main {
 
         # If private nodes are found, determine the PS version and execute corresponding grpcurl if statement. Else skip.
         if ($privateOnlineNodes.name.count -gt 0) {
-            if ($PSVersionTable.PSVersion.Major -ge 7) {
-                $coinbase = (Invoke-Expression "$grpcurl --plaintext -max-time 10 $($privateOnlineNodes.Host):$($privateOnlineNodes.PortPrivate) spacemesh.v1.SmesherService.Coinbase" | ConvertFrom-Json).accountId.address
-                $jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$coinbase`" }, `"account_data_flags`": 4 } }"
-                $balance = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' $($privateOnlineNodes.Host):$($privateOnlineNodes.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value
-                $balanceSMH = [string]([math]::Round($balance / 1000000000, 3)) + " SMH"
-                $coinbase = "($coinbase)"
-                if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
-            }
+			$coinbase = (Invoke-Expression "$grpcurl --plaintext -max-time 10 $($privateOnlineNodes.Host):$($privateOnlineNodes.Port2) spacemesh.v1.SmesherService.Coinbase" | ConvertFrom-Json).accountId.address
+			$jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$coinbase`" }, `"account_data_flags`": 4 } }"
+			$balance = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' $($privateOnlineNodes.Host):$($privateOnlineNodes.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value
+			$balanceSMH = [string]([math]::Round($balance / 1000000000, 3)) + " SMH"
+			$coinbase = "($coinbase)"
+			if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
             if ($coinbaseAddressVisibility -eq "partial") {
                 $coinbase = '(' + $($coinbase).Substring($($coinbase).IndexOf(")") - 4, 4) + ')'
             }
@@ -305,30 +331,58 @@ function main {
         }
         else {
             $coinbase = ""
-            $balanceSMH = "You must have at least one synced 'localhost' node defined...or Install PowerShell 7"
+            $balanceSMH = "Unable to retrieve the balance at the moment"
         }
-
-        if ($smhCoinsVisibility -eq $false) {
-            $balanceSMH = "----.--- SMH"
         }
 
         $columnRules = applyColumnRules
 
         Clear-Host
-        $object | Select-Object Name, SmesherID, Host, Port, Peers, SU, SizeTiB, Synced, Layer, Top, Verified, Version, Smeshing, RWD, ELG | ColorizeMyObject -ColumnRules $columnRules
+        $object | ForEach-Object {
+			$props = 'Name', 'NodeID', 'Host'
+			if ($ShowPorts -eq "True") { $props += 'Port', 'Port2' }
+			$props += 'Peers', 'SU', 'SizeTiB', 'Synced', 'Top', 'Verified', 'Version', 'Smeshing', 'RWD'
+			if ($showELG -eq "True") { $props += 'ELG' }
+			if ($checkIfBanned -eq "True") { $props += 'BAN' }
+			$_ | Select-Object $props
+		} | ColorizeMyObject -ColumnRules $columnRules
+		#$object | Select-Object Name, NodeID, Host, Port, Peers, SU, SizeTiB, Synced, Top, Verified, Version, Smeshing, RWD, ELG, BAN | ColorizeMyObject -ColumnRules $columnRules
+		
+		$tableRefreshTimer.Restart()
+
+		if (($queryHighestAtx -eq "True") -and ($null -eq $highestAtxJob) -and ($null -eq $highestAtx)) {
+			$syncedNode = $syncNodes.Values | Where-Object { $_.synced -eq "True" } | Select-Object -First 1
+			if ($syncedNode) {
+				$highestAtxJob = Start-Job -ScriptBlock {
+					param($syncedNode, $grpcurl)
+					$result = & $grpcurl --plaintext "$($syncedNode.host):$($syncedNode.port)" spacemesh.v1.ActivationService.Highest
+					return $result
+				} -ArgumentList $syncedNode, $grpcurl
+			}
+		}
+			if ($highestAtxJob.State -eq "Completed") { #$highestAtxJob | Wait-Job -Timeout 30 | Out-Null
+				$jobResult = $highestAtxJob | Receive-Job
+				$highestAtx = ($jobResult | ConvertFrom-Json).atx
+				$highestAtxJob = $null
+			}
+
         Write-Host `n
+
         Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
         Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch -ForegroundColor Green
-        Write-Host " Total Layers: " -ForegroundColor Cyan -nonewline; Write-Host ($totalLayers) -ForegroundColor Yellow -nonewline; Write-Host " Layers"
-        Write-Host "      Balance: " -ForegroundColor Cyan -NoNewline; Write-Host "$balanceSMH" -ForegroundColor White -NoNewline; Write-Host " $($coinbase)" -ForegroundColor Cyan
-        if ($queryHighestAtx) {
-            if ($null -ne $resultsNodeHighestATX) {
-                Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $resultsNodeHighestATX.id.id) -ForegroundColor Green
-            }
-            Write-Host "ATX Base64_ID: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.id.id -ForegroundColor Green
-            Write-Host "        Layer: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.layer.number -ForegroundColor Green
-            Write-Host "     NumUnits: " -ForegroundColor Cyan -nonewline; Write-Host $resultsNodeHighestATX.numUnits -ForegroundColor Green
-        }
+		if ($totalLayers) {
+			Write-Host " Total Layers: " -ForegroundColor Cyan -nonewline; Write-Host ($totalLayers) -ForegroundColor Yellow -nonewline; Write-Host " Layers"
+		}
+		if ($showWalletBalance -eq "True") {
+			Write-Host "      Balance: " -ForegroundColor Cyan -NoNewline; Write-Host "$balanceSMH" -ForegroundColor White -NoNewline; Write-Host " $($coinbase)" -ForegroundColor Cyan
+		}
+		if ($highestAtx) {
+			Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $highestAtx.id.id) -ForegroundColor Green
+		} else {
+			if ($highestAtxJob) {
+				Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host "updating ... " -ForegroundColor DarkGray
+			}
+		}
         Write-Host "--------------------------------------------------------------------------------" -ForegroundColor Yellow
         Write-Host "ELG - The number of Epoch when the node will be eligible for rewards. " -ForegroundColor DarkGray
 
@@ -353,7 +407,7 @@ function main {
             if ($emailEnable -eq "True" -And (isValidEmail($myEmail))) {
                 $Body = "Warning, some nodes are offline!"
 
-                foreach ($node in $nodeList) {
+                foreach ($node in $syncNodes.Values) {
                     if (!$node.online) {
                         $Body = $body + $newLine + $node.name + " " + $node.Host + " " + $node.Smeshing
                         if (!$node.emailsent) {
@@ -405,30 +459,68 @@ function main {
         $currentDate = Get-Date -Format HH:mm:ss
         # Refresh
         Write-Host `n
-        Write-Host "Last refresh: " -ForegroundColor Yellow -nonewline; Write-Host "$currentDate" -ForegroundColor Green;
-
+		Write-Host "Press SPACE to refresh " -ForegroundColor DarkGray
+        Write-Host "Last refresh:  " -ForegroundColor Yellow -nonewline; Write-Host "$currentDate" -ForegroundColor Green 
+		
         # Get original position of cursor
         $originalPosition = $host.UI.RawUI.CursorPosition
+		$relativeCursorPosition = New-Object System.Management.Automation.Host.Coordinates
 
-        # Refresh Timeout
-        $iterations = [math]::Ceiling($tableRefreshTimeSeconds / 5)
-        for ($i = 0; $i -lt $iterations; $i++) {
-            Write-Host -NoNewline "." -ForegroundColor Cyan
-            Start-Sleep 5
-        }
-        $clearmsg = " " * ([System.Console]::WindowWidth - 1)
-        [Console]::SetCursorPosition($originalPosition.X, $originalPosition.Y)
-        [System.Console]::Write($clearmsg)
-        [Console]::SetCursorPosition($originalPosition.X, $originalPosition.Y)
-        Write-Host "Updating..." -NoNewline -ForegroundColor Cyan
+		$clearmsg = " " * ([System.Console]::WindowWidth - 1)
+		#$frames = @('+', 'x', '*') 
+		#$frames = @('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏') 
+		$frames = @(
+			"⢀⠀", "⡀⠀", "⠄⠀", "⢂⠀", "⡂⠀", "⠅⠀", "⢃⠀", "⡃⠀", "⠍⠀", "⢋⠀",
+			"⡋⠀", "⠍⠁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙", "⠉⠙", "⠉⠩",
+			"⠈⢙", "⠈⡙", "⢈⠩", "⡀⢙", "⠄⡙", "⢂⠩", "⡂⢘", "⠅⡘", "⢃⠨", "⡃⢐",
+			"⠍⡐", "⢋⠠", "⡋⢀", "⠍⡁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙",
+			"⠉⠙", "⠉⠩", "⠈⢙", "⠈⡙", "⠈⠩", "⠀⢙", "⠀⡙", "⠀⠩", "⠀⢘", "⠀⡘",
+			"⠀⠨", "⠀⢐", "⠀⡐", "⠀⠠", "⠀⢀", "⠀⡀"
+		)
+		$frameCount = $frames.Count
 
-        $HoursElapsed = $Stopwatch.Elapsed.TotalHours
-        if ($HoursElapsed -ge 1) {
+:waitloop
+		while($true) {
+			for ($i = 0; $i -lt $frames.Count; $i++) {
+			$tableRefreshTimeElapsed = $tableRefreshTimer.Elapsed.TotalSeconds + 4
+			if ($tableRefreshTimeElapsed -ge $tableRefreshTime) {
+				break waitloop
+			}
+			if ($highestAtxJob.State -eq "Completed") {
+				break waitloop
+			}
+			if ([System.Console]::KeyAvailable) {
+				$key = [System.Console]::ReadKey($true)
+				if ($key.Key -eq "Spacebar") {break waitloop}
+			}
+			$secondsLeft = ($tableRefreshTime - $tableRefreshTimeElapsed) -as [int]
+			$frame = $frames[$i % $frameCount]
+			$bufferHeight = $host.UI.RawUI.BufferSize.Height
+			$relativeCursorPosition.Y = $originalPosition.Y - $host.UI.RawUI.WindowPosition.Y
+			if ($bufferHeight -gt $relativeCursorPosition.Y) {
+				[Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
+				[Console]::Write($clearmsg)
+				[Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
+				Write-Host "Next refresh in: " -nonewline -ForegroundColor Yellow; Write-Host "$($secondsLeft.ToString().PadLeft(3, ' ')) $frame" -nonewline
+			}
+			Start-Sleep -Milliseconds 100
+			}
+		}
+		
+		[Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
+		[Console]::Write($clearmsg)
+		[Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
+		Write-Host "Updating..." -NoNewline
+
+		# Reset some variables every hour
+        $OneHoursElapsed = $OneHourTimer.Elapsed.TotalHours
+        if ($OneHoursElapsed -ge 1) {
             $gitNewVersion = Get-gitNewVersion
             if ($gitNewVersion) {
                 $gitVersion = $gitNewVersion
             }
-            $Stopwatch.Restart()
+			$highestAtx = $null
+            $OneHourTimer.Restart()
         }
     }
 }
@@ -456,6 +548,7 @@ function B64_to_Hex {
     )
     [System.BitConverter]::ToString([System.Convert]::FromBase64String($id2convert)).Replace("-", "")
 }
+
 function Hex_to_B64 {
     param (
         [Parameter(Position = 0, Mandatory = $true)]
@@ -464,6 +557,7 @@ function Hex_to_B64 {
     $NODE_ID_BYTES = for ($i = 0; $i -lt $id2convert.Length; $i += 2) { [Convert]::ToByte($id2convert.Substring($i, 2), 16) }
     [System.Convert]::ToBase64String($NODE_ID_BYTES)
 }
+
 function ColorizeMyObject {
     param (
         [Parameter(ValueFromPipeline = $true)]
@@ -475,6 +569,7 @@ function ColorizeMyObject {
 
     begin {
         $dataBuffer = @()
+		$symbols = [PSCustomObject] @{ GreenMark = " $([char]0x1b)[92m$([char]8730) $([char]0x1b)[0m"; XMark = " $([char]0x1b)[91m× $([char]0x1b)[0m" }
     }
 
     process {
@@ -522,7 +617,13 @@ function ColorizeMyObject {
                         }
                     }
                 }
-
+				
+                if ($propertyValue -eq 'yes') {
+                    $propertyValue = $symbols.XMark
+                } elseif ($propertyValue -eq 'no') {
+                    $propertyValue = $symbols.GreenMark
+                }
+				
                 $paddedValue = $propertyValue.PadRight($maxWidths[$header])
 
                 if ($foregroundColor -or $backgroundColor) {
@@ -562,26 +663,26 @@ function printSMMonitorLogo {
     $colDelay = 0  # milliseconds
     $logoWidth = 86  # Any time you change the logo, all rows have to be the exact width.  Then assign to this var.
     $logoHeight = 9  # Any time you change the logo, recount the rows and assign to this var.
-
+    
     $screenWidth = $host.UI.RawUI.WindowSize.Width
     $screenHeight = $host.UI.RawUI.WindowSize.Height
     $horizontalOffset = [Math]::Max(0, [Math]::Ceiling(($screenWidth - $logoWidth) / 2))
     $verticalOffset = [Math]::Max(0, [Math]::Ceiling(($screenHeight - $logoHeight) / 2))
-
+    
     $asciiArt = @"
-      _________   _____               _____                 __  __                    
-/\   /   _____/  /     \             /     \   ____   ____ |__|/  |_  ___________   /\
-\/   \_____  \  /  \ /  \   ______  /  \ /  \ /  _ \ /    \|  \   __\/  _ \_  __ \  \/
-/\   /        \/    Y    \ /_____/ /    Y    (  <_> )   |  \  ||  | (  <_> )  | \/  /\
-\/  /_______  /\____|__  /         \____|__  /\____/|___|  /__||__|  \____/|__|     \/
-        \/         \/                  \/            \/                               
-                 _____________________________________________________________________     
-                /_____/_____/_____/_____/_____/  https://github.com/xeliuqa/SM-Monitor     
-                                                              https://www.spacemesh.io     
+          _________   _____               _____                 __  __                    
+    /\   /   _____/  /     \             /     \   ____   ____ |__|/  |_  ___________   /\
+    \/   \_____  \  /  \ /  \   ______  /  \ /  \ /  _ \ /    \|  \   __\/  _ \_  __ \  \/
+    /\   /        \/    Y    \ /_____/ /    Y    (  <_> )   |  \  ||  | (  <_> )  | \/  /\
+    \/  /_______  /\____|__  /         \____|__  /\____/|___|  /__||__|  \____/|__|     \/
+            \/         \/                  \/            \/                               
+                     _____________________________________________________________________     
+                    /_____/_____/_____/_____/_____/  https://github.com/xeliuqa/SM-Monitor     
+                                                                  https://www.spacemesh.io     
 "@
-
+    
     $lines = $asciiArt -split "`n"
-
+    
     for ($col = 1; $col -le $lines[0].Length; $col++) {
         for ($row = 1; $row -le $lines.Length; $row++) {
             $char = if ($col - 1 -lt $lines[$row - 1].Length) { $lines[$row - 1][$col - 1] } else { ' ' }
@@ -608,7 +709,7 @@ function printSMMonitorLogo {
         }
         Start-Sleep -Milliseconds $colDelay
     }
-
+    
     $CursorPosition = [System.Management.Automation.Host.Coordinates]::new(0, $lines.Length + $verticalOffset + 1)
     $host.UI.RawUI.CursorPosition = $CursorPosition
     # Start-Sleep $logoDelay
