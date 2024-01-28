@@ -16,41 +16,41 @@ With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa
 Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 	-------------------------------------------------------------------------------------------- #>
 
-$host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
+    $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 
-############## General Settings  ##############
-$showWalletBalance = "False" # "True" or "False"
-$coinbaseAddressVisibility = "full" # "partial", "full", "hidden"
-$fakeCoins = 0 # For screenshot purposes.  Set to 0 to pull real coins.  FAKE 'EM OUT!  (Example: 2352.24)
-
-$tableRefreshTime = 300 # Time in seconds that the refresh happens.  Lower value = more grpc entries in logs.
-$DefaultBackgroundColor = "Black" # Set to the colour of your console if 'Black' doesn't look good
-
-$emailEnable = "False" # "True" to enable email notification, "True" or "False"
-$myEmail = "my@email.com" #Set your Email for notifications
-
-$ShowPorts = "False" # True to show node's ports. "True" or "False"
-$queryHighestAtx = "False" # "True" to request for Highest ATX. "True" or "False"
-$checkIfBanned = "False" # "True" if you want to check if the node is banned. "True" or "False"
-$showELG = "True"  # "True" if you want to show the number of Epoch when the node will be eligible for rewards. "True" or "False"
-
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-$fileFormat = 0
-# FileFormat variable sets the type of the file you want to export
-# 0 - doesn't export
-# 1 - an old format used for Spacemesh Reward Tracker App (by BVale)
-# 2 - a new format used for Spacemesh Reward Tracker App (by BVale)
-# 3 - use it for layers tracking website (by PlainLazy: http://fcmx.net/sm-eligibilities/)
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-$nodeList = @(
-    @{ name = "Node_01"; host = "192.168.1.xx"; port = 11001; port2 = 11002 },
-    @{ name = "Node_02"; host = "192.168.1.xx"; port = 12001; port2 = 12002 },
-    @{ name = "Node_03"; host = "192.168.1.xx"; port = 13001; port2 = 13002 },
-    @{ name = "Node_04"; host = "192.168.1.xx"; port = 14001; port2 = 14002 },
-    @{ name = "SMAPP_Server"; host = "192.168.1.xx"; port = 9092; port2 = 9093 },
-    @{ name = "SMAPP_Home"; host = "localhost"; port = 9092; port2 = 9093 }
+    ############## General Settings  ##############
+    $showWalletBalance = "True" # "True" or "False"
+    $coinbaseAddressVisibility = "partial" # "partial", "full", "hidden"
+    $fakeCoins = 0 # For screenshot purposes.  Set to 0 to pull real coins.  FAKE 'EM OUT!  (Example: 2352.24)
+    
+    $tableRefreshTime = 300 # Time in seconds that the refresh happens.  Lower value = more grpc entries in logs.
+    $DefaultBackgroundColor = "Black" # Set to the colour of your console if 'Black' doesn't look good
+    
+    $emailEnable = "False" # "True" to enable email notification, "True" or "False"
+    $myEmail = "my@email.com" #Set your Email for notifications
+    
+    $ShowPorts = "False" # True to show node's ports. "True" or "False"
+    $queryHighestAtx = "False" # "True" to request for Highest ATX. "True" or "False"
+    $checkIfBanned = "True" # "True" if you want to check if the node is banned. "True" or "False"
+    $showELG = "True"  # "True" if you want to show the number of Epoch when the node will be eligible for rewards. "True" or "False"
+    
+    #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    $fileFormat = 0
+    # FileFormat variable sets the type of the file you want to export
+    # 0 - doesn't export
+    # 1 - an old format used for Spacemesh Reward Tracker App (by BVale)
+    # 2 - a new format used for Spacemesh Reward Tracker App (by BVale)
+    # 3 - use it for layers tracking website (by PlainLazy: http://fcmx.net/sm-eligibilities/)
+    #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    
+    $nodeList = @(
+	@{ name = "Node_01"; host = "192.168.1.xx"; port = 11001; port2 = 11002 },
+	@{ name = "Node_02"; host = "192.168.1.xx"; port = 12001; port2 = 12002 },
+	@{ name = "Node_03"; host = "192.168.1.xx"; port = 13001; port2 = 13002 },
+	@{ name = "Node_04"; host = "192.168.1.xx"; port = 14001; port2 = 14002 },
+	@{ name = "SMAPP_Server"; host = "192.168.1.xx"; port = 9092; port2 = 9093 },
+	@{ name = "SMAPP_Home"; host = "localhost"; port = 9092; port2 = 9093 }
 )
 ################ Settings Finish ###############
 
@@ -391,10 +391,10 @@ function main {
 
         #Version Check
         if ($null -ne $gitVersion) {
-            $currentVersion = ($gitVersion -split "-")[0] -replace "[^.0-9]"
+            $currentVersion = $gitVersion -replace "[^.0-9]"
             Write-Host "Github Go-Spacemesh version: $($gitVersion)" -ForegroundColor Green
             foreach ($node in ($object | Where-Object { $_.synced -notmatch "Offline" })) {
-                $node.version = ($node.version -split "-")[0] -replace "[^.0-9]"
+                $node.version = $node.version -replace "[^.0-9]"
                 if ([version]$node.version -lt [version]$currentVersion) {
                     Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Outdated!" -ForegroundColor DarkYellow
                     break
@@ -459,7 +459,7 @@ function main {
         $currentDate = Get-Date -Format HH:mm:ss
         # Refresh
         Write-Host `n
-		Write-Host "Press <space> to update" -ForegroundColor DarkGray
+		Write-Host "Press SPACE to refresh " -ForegroundColor DarkGray
         Write-Host "Last refresh:  " -ForegroundColor Yellow -nonewline; Write-Host "$currentDate" -ForegroundColor Green 
 		
         # Get original position of cursor
