@@ -465,7 +465,7 @@ function main {
         $currentDate = Get-Date -Format HH:mm:ss
         # Refresh
         Write-Host `n
-        Write-Host "Press <space> to update" -ForegroundColor DarkGray
+        Write-Host "Press SPACE to refresh" -ForegroundColor DarkGray
         Write-Host "Last refresh:  " -ForegroundColor Yellow -nonewline; Write-Host "$currentDate" -ForegroundColor Green 
             
         # Get original position of cursor
