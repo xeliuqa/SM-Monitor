@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 3.00
+.VERSION 3.01
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -34,7 +34,9 @@ $ShowPorts = "False" # True to show node's ports. "True" or "False"
 $queryHighestAtx = "False" # "True" to request for Highest ATX. "True" or "False"
 $checkIfBanned = "False" # "True" if you want to check if the node is banned. "True" or "False"
 $showELG = "True"  # "True" if you want to show the number of Epoch when the node will be eligible for rewards. "True" or "False"
-    
+
+$grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in the same folder
+
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 $fileFormat = 0
 # FileFormat variable sets the type of the file you want to export
@@ -55,10 +57,9 @@ $nodeList = @(
 ################ Settings Finish ###############
     
 function main {
-    $grpcurl = $PSScriptRoot + "\grpcurl.exe"
     $syncNodes = [System.Collections.Hashtable]::Synchronized(@{})
     [System.Console]::CursorVisible = $false
-    $ErrorActionPreference = 'silentlycontinue'
+    $ErrorActionPreference = 'SilentlyContinue'
     $OneHourTimer = [System.Diagnostics.Stopwatch]::StartNew()
     $tableRefreshTimer = [System.Diagnostics.Stopwatch]::StartNew()
     
@@ -214,10 +215,10 @@ function main {
                     $response = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.MeshService.MalfeasanceStream")) 2>$null
                     if ($response) {
                         if ($response -match $publicKeylow) {
-                            $node.ban = "yes"
+                            $node.ban = "`u{1F480}" #"yes"
                         }
                         else {
-                            $node.ban = "no"
+                            $node.ban = "`u{1f197}" #"no"
                         }
                     }
                     else { $node.ban = " ." }
@@ -575,7 +576,6 @@ function ColorizeMyObject {
     
     begin {
         $dataBuffer = @()
-        $symbols = [PSCustomObject] @{ GreenMark = " $([char]0x1b)[92m$([char]8730) $([char]0x1b)[0m"; XMark = " $([char]0x1b)[91m× $([char]0x1b)[0m" }
     }
     
     process {
@@ -622,13 +622,6 @@ function ColorizeMyObject {
                             #break
                         }
                     }
-                }
-                    
-                if ($propertyValue -eq 'yes') {
-                    $propertyValue = $symbols.XMark
-                }
-                elseif ($propertyValue -eq 'no') {
-                    $propertyValue = $symbols.GreenMark
                 }
                     
                 $paddedValue = $propertyValue.PadRight($maxWidths[$header])
