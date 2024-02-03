@@ -35,7 +35,8 @@ $queryHighestAtx = "False" # "True" to request for Highest ATX. "True" or "False
 $checkIfBanned = "False" # "True" if you want to check if the node is banned. "True" or "False"
 $showELG = "True"  # "True" if you want to show the number of Epoch when the node will be eligible for rewards. "True" or "False"
 
-$grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in the same folder
+$grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in the same folder.
+                           #Linux users, you know what to do!
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 $fileFormat = 0
