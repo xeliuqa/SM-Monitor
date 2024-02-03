@@ -90,7 +90,7 @@ function main {
             }
     
             $status = $null
-            $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
+            $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 10 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
     
             if ($status) {
                 $node.online = "True"
@@ -108,11 +108,15 @@ function main {
                 $node.online = ""
                 $node.smeshing = "Offline"
                 $node.synced = "Offline"
+				$node.numUnits = $null
                 $node.connectedPeers = $null
                 $node.syncedLayer = $null
                 $node.topLayer = $null
                 $node.verifiedLayer = $null
                 $node.version = $null
+				$node.rewards = $null
+				$node.atx = $null
+				$node.ban = $null
             }
     
             if ($node.online) {
@@ -209,11 +213,11 @@ function main {
                 #}
             }
     
-            if (($using:checkIfBanned -eq "True") -and !$node.ban) {
+            if ($using:checkIfBanned -eq "True") {
                 if ($node.publicKey) {
                     $publicKeylow = [System.BitConverter]::ToString([System.Convert]::FromBase64String($node.publicKey)).Replace("-", "").ToLower()
                     $response = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.MeshService.MalfeasanceStream")) 2>$null
-                    if ($response) {
+                    if ($response -match "MALFEASANCE_HARE") {
                         if ($response -match $publicKeylow) {
                             $node.ban = "`u{1F480}" #"yes"
                         }
@@ -221,7 +225,7 @@ function main {
                             $node.ban = "`u{1f197}" #"no"
                         }
                     }
-                    else { $node.ban = " ." }
+                    else { $node.ban = "" }
                 }
                 else { $node.ban = " -" }
             }
@@ -276,7 +280,7 @@ function main {
                 Port2    = $node.port2
                 Peers    = $node.connectedPeers
                 SU       = $node.numUnits
-                SizeTiB  = [Math]::Round($node.numUnits * 64 * 0.0009765625, 3)
+                SizeTiB  = if ($node.numUnits -eq $null -or $node.numUnits -eq 0) { $null } else { [Math]::Round($node.numUnits * 64 * 0.0009765625, 3) }
                 Synced   = $node.synced
                 Layer    = $node.syncedLayer
                 Top      = $node.topLayer
