@@ -63,7 +63,7 @@ function main {
     $ErrorActionPreference = 'SilentlyContinue' # 'Inquire', 'SilentlyContinue'
     $OneHourTimer = [System.Diagnostics.Stopwatch]::StartNew()
     $tableRefreshTimer = [System.Diagnostics.Stopwatch]::StartNew()
-	$stage = 2 # 0 to ignore stages or 2 for initial stages
+    $stage = 2 # 0 to ignore stages or 2 for initial stages
 
     printSMMonitorLogo
     
@@ -91,41 +91,41 @@ function main {
                 $node.name = $node.info
             }
     
-			if (($using:stage -ne 1) -and ($using:stage -ne 4)) {
-            $status = $null
-            $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 10 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
+            if (($using:stage -ne 1) -and ($using:stage -ne 4)) {
+                $status = $null
+                $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 10 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
     
-				if ($status) {
-					$node.online = "True"
-					$node.connectedPeers = $status.connectedPeers
-					$node.syncedLayer = $status.syncedLayer.number
-					$node.topLayer = $status.topLayer.number
-					$node.verifiedLayer = $status.verifiedLayer.number
-					$publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID")) | ConvertFrom-Json).publicKey 2>$null
-					if ($publicKey) {
-						$node.publicKey = $publicKey
-					}
-					if ($status.isSynced) {
-						$node.synced = "True"
-						$node.emailsent = ""
-					}
-					else { $node.synced = "False" }
-				}
-				else {
-					$node.online = ""
-					$node.smeshing = "Offline"
-					$node.synced = "Offline"
-					$node.numUnits = $null
-					$node.connectedPeers = $null
-					$node.syncedLayer = $null
-					$node.topLayer = $null
-					$node.verifiedLayer = $null
-					$node.version = $null
-					$node.rewards = $null
-					$node.atx = $null
-					$node.ban = $null
-				}
-			}
+                if ($status) {
+                    $node.online = "True"
+                    $node.connectedPeers = $status.connectedPeers
+                    $node.syncedLayer = $status.syncedLayer.number
+                    $node.topLayer = $status.topLayer.number
+                    $node.verifiedLayer = $status.verifiedLayer.number
+                    $publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID")) | ConvertFrom-Json).publicKey 2>$null
+                    if ($publicKey) {
+                        $node.publicKey = $publicKey
+                    }
+                    if ($status.isSynced) {
+                        $node.synced = "True"
+                        $node.emailsent = ""
+                    }
+                    else { $node.synced = "False" }
+                }
+                else {
+                    $node.online = ""
+                    $node.smeshing = "Offline"
+                    $node.synced = "Offline"
+                    $node.numUnits = $null
+                    $node.connectedPeers = $null
+                    $node.syncedLayer = $null
+                    $node.topLayer = $null
+                    $node.verifiedLayer = $null
+                    $node.version = $null
+                    $node.rewards = $null
+                    $node.atx = $null
+                    $node.ban = $null
+                }
+            }
     
             if ($node.online -and ($using:stage -ne 2) -and ($using:stage -ne 4)) {
     
@@ -194,11 +194,12 @@ function main {
                     $node.atx = " -"
                 }
 
-                $smeshing = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.IsSmeshing")) | ConvertFrom-Json)	2>$null
+                $smeshing = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.IsSmeshing")) | ConvertFrom-Json)    2>$null
                 if ($null -ne $smeshing.isSmeshing) {$node.smeshing = "True" } else { $node.smeshing = "False" }
+                
             }
-			
-			if ($node.online -and ($using:stage -ne 1) -and ($using:stage -ne 4)) {
+            
+            if ($node.online -and ($using:stage -ne 1) -and ($using:stage -ne 4)) {
                 $state = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus")) | ConvertFrom-Json).status 2>$null
                 #Write-Host -NoNewline "." -ForegroundColor Green
     
@@ -210,7 +211,7 @@ function main {
                         $node.smeshing = "$($percent)%"
                     }
                 }
-			}
+            }
 
             if (($using:checkIfBanned -eq "True") -and ($using:stage -ne 2) -and ($using:stage -ne 4)) {
                 if ($node.publicKey) {
@@ -270,10 +271,10 @@ function main {
                     $rewardsTrackApp += $nodeData
                 }
             }
-			
-			if ($node.topLayer -gt $topLayer) {
-				$topLayer = $node.topLayer
-			}
+            
+            if ($node.topLayer -gt $topLayer) {
+                $topLayer = $node.topLayer
+            }
     
             $o = [PSCustomObject]@{
                 Name     = $node.name
@@ -382,12 +383,12 @@ function main {
         Write-Host `n
     
         Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
-		if ($epoch) {
-			Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch -ForegroundColor Green
-		}
-		if ($topLayer) {
-			Write-Host "Current Layer:" -ForegroundColor Cyan -nonewline; Write-Host $topLayer -ForegroundColor Green
-		}
+        if ($epoch) {
+            Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch -ForegroundColor Green
+        }
+        if ($topLayer) {
+            Write-Host "Current Layer:" -ForegroundColor Cyan -nonewline; Write-Host $topLayer -ForegroundColor Green
+        }
         if ($totalLayers) {
             Write-Host "Total Layers: " -ForegroundColor Cyan -nonewline; Write-Host ($totalLayers) -ForegroundColor Yellow -nonewline; Write-Host " Layers"
         }
@@ -497,12 +498,12 @@ function main {
             "⠀⠨", "⠀⢐", "⠀⡐", "⠀⠠", "⠀⢀", "⠀⡀"
         )
         $frameCount = $frames.Count
-		if ($stage -eq 4) {
-			$stage = 0
-		}
-		if ($stage -gt 0) {
-			$stage = $stage -1
-		}
+        if ($stage -eq 4) {
+            $stage = 0
+        }
+        if ($stage -gt 0) {
+            $stage = $stage -1
+        }
 
         :waitloop
         while ($stage -eq 0) {
@@ -512,7 +513,7 @@ function main {
                     break waitloop
                 }
                 if ($highestAtxJob.State -eq "Completed") {
-					$stage = 4
+                    $stage = 4
                     break waitloop
                 }
                 if ([System.Console]::KeyAvailable) {
@@ -532,7 +533,7 @@ function main {
                 Start-Sleep -Milliseconds 100
             }
         }
-		$relativeCursorPosition.Y = $originalPosition.Y - $host.UI.RawUI.WindowPosition.Y
+        $relativeCursorPosition.Y = $originalPosition.Y - $host.UI.RawUI.WindowPosition.Y
         [Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
         [Console]::Write($clearmsg)
         [Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
@@ -737,7 +738,7 @@ function printSMMonitorLogo {
 
 function applyColumnRules {
     # Colors: Black, Blue, Cyan, DarkBlue, DarkCyan, DarkGray, DarkGreen, DarkMagenta, DarkRed, DarkYellow, Gray, Green, Magenta, Red, White, Yellow
-    return	@(
+    return  @(
         @{ Column = "Name"; Value = "*"; ForegroundColor = "Cyan"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "SmesherID"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Host"; Value = "*"; ForegroundColor = "White"; BackgroundColor = $DefaultBackgroundColor },
