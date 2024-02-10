@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 3.01
+.VERSION 3.02
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -60,10 +60,11 @@ $nodeList = @(
 function main {
     $syncNodes = [System.Collections.Hashtable]::Synchronized(@{})
     [System.Console]::CursorVisible = $false
-    $ErrorActionPreference = 'SilentlyContinue'
+    $ErrorActionPreference = 'SilentlyContinue' # 'Inquire', 'SilentlyContinue'
     $OneHourTimer = [System.Diagnostics.Stopwatch]::StartNew()
     $tableRefreshTimer = [System.Diagnostics.Stopwatch]::StartNew()
-    
+	$stage = 2 # 0 to ignore stages or 2 for initial stages
+
     printSMMonitorLogo
     
     $gitVersion = Get-gitNewVersion
@@ -75,7 +76,7 @@ function main {
     $nodeList | ForEach-Object { $syncNodes[$_.name] = $_ }
     
     while ($true) {
-    
+
         $object = @()
         $epoch = $null
         $totalLayers = $null
@@ -90,37 +91,43 @@ function main {
                 $node.name = $node.info
             }
     
+			if (($using:stage -ne 1) -and ($using:stage -ne 4)) {
             $status = $null
             $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 10 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
     
-            if ($status) {
-                $node.online = "True"
-                $node.connectedPeers = $status.connectedPeers
-                $node.syncedLayer = $status.syncedLayer.number
-                $node.topLayer = $status.topLayer.number
-                $node.verifiedLayer = $status.verifiedLayer.number
-                if ($status.isSynced) {
-                    $node.synced = "True"
-                    $node.emailsent = ""
-                }
-                else { $node.synced = "False" }
-            }
-            else {
-                $node.online = ""
-                $node.smeshing = "Offline"
-                $node.synced = "Offline"
-				$node.numUnits = $null
-                $node.connectedPeers = $null
-                $node.syncedLayer = $null
-                $node.topLayer = $null
-                $node.verifiedLayer = $null
-                $node.version = $null
-				$node.rewards = $null
-				$node.atx = $null
-				$node.ban = $null
-            }
+				if ($status) {
+					$node.online = "True"
+					$node.connectedPeers = $status.connectedPeers
+					$node.syncedLayer = $status.syncedLayer.number
+					$node.topLayer = $status.topLayer.number
+					$node.verifiedLayer = $status.verifiedLayer.number
+					$publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID")) | ConvertFrom-Json).publicKey 2>$null
+					if ($publicKey) {
+						$node.publicKey = $publicKey
+					}
+					if ($status.isSynced) {
+						$node.synced = "True"
+						$node.emailsent = ""
+					}
+					else { $node.synced = "False" }
+				}
+				else {
+					$node.online = ""
+					$node.smeshing = "Offline"
+					$node.synced = "Offline"
+					$node.numUnits = $null
+					$node.connectedPeers = $null
+					$node.syncedLayer = $null
+					$node.topLayer = $null
+					$node.verifiedLayer = $null
+					$node.version = $null
+					$node.rewards = $null
+					$node.atx = $null
+					$node.ban = $null
+				}
+			}
     
-            if ($node.online) {
+            if ($node.online -and ($using:stage -ne 2) -and ($using:stage -ne 4)) {
     
                 $node.epoch = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.MeshService.CurrentEpoch")) | ConvertFrom-Json).epochnum 2>$null
     
@@ -133,16 +140,17 @@ function main {
     
                 $eventstream = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.AdminService.EventsStream")) 2>$null
                 $eventstream = $eventstream -split "`n" | Where-Object { $_ }
-                $node.eligibilities = @()
+                $eligibilities = @()
                 $atxPublished = @()
                 $jsonObject = @()
                 $poetWaitProof = @()
+
                 foreach ($line in $eventstream) {
-                    if ($line -eq "{") {
+                    if (($line -notmatch "^\s+") -and ($line -match "{")) {
                         $jsonObject = @()
                     }
                     $jsonObject += $line
-                    if ($line -eq "}") {
+                    if (($line -notmatch "^\s+") -and ($line -match "}")) {
                         Try {
                             $json = $jsonObject -join "`n" | ConvertFrom-Json
                             if ($json.eligibilities) {
@@ -161,6 +169,7 @@ function main {
                         }
                     }
                 }
+
                 $layers = $null
                 foreach ($eligibility in $eligibilities) {
                     if ($eligibility.epoch -eq $node.epoch.number) {
@@ -184,14 +193,12 @@ function main {
                 else {
                     $node.atx = " -"
                 }
-    
-                #Uncomment next line if your Smapp using standard configuration -- 1 of 2
-                #if (($node.host -eq "localhost") -Or ($node.host -ne "localhost" -And $node.port2 -ne 9093)){
+
                 $smeshing = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.IsSmeshing")) | ConvertFrom-Json)	2>$null
-    
-                if ($null -ne $smeshing.isSmeshing)
-                { $node.smeshing = "True" } else { $node.smeshing = "False" }
-    
+                if ($null -ne $smeshing.isSmeshing) {$node.smeshing = "True" } else { $node.smeshing = "False" }
+            }
+			
+			if ($node.online -and ($using:stage -ne 1) -and ($using:stage -ne 4)) {
                 $state = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus")) | ConvertFrom-Json).status 2>$null
                 #Write-Host -NoNewline "." -ForegroundColor Green
     
@@ -203,18 +210,9 @@ function main {
                         $node.smeshing = "$($percent)%"
                     }
                 }
-    
-                $publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID")) | ConvertFrom-Json).publicKey 2>$null
-    
-                if ($publicKey) {
-                    $node.publicKey = $publicKey
-                }
-    
-                #Uncomment next line if your Smapp using standard configuration -- 2 of 2
-                #}
-            }
-    
-            if ($using:checkIfBanned -eq "True") {
+			}
+
+            if (($using:checkIfBanned -eq "True") -and ($using:stage -ne 2) -and ($using:stage -ne 4)) {
                 if ($node.publicKey) {
                     $publicKeylow = [System.BitConverter]::ToString([System.Convert]::FromBase64String($node.publicKey)).Replace("-", "").ToLower()
                     $response = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.MeshService.MalfeasanceStream")) 2>$null
@@ -272,6 +270,10 @@ function main {
                     $rewardsTrackApp += $nodeData
                 }
             }
+			
+			if ($node.topLayer -gt $topLayer) {
+				$topLayer = $node.topLayer
+			}
     
             $o = [PSCustomObject]@{
                 Name     = $node.name
@@ -314,11 +316,11 @@ function main {
             }
         }
     
-        if ($showWalletBalance -eq "True") {
+        if (($showWalletBalance -eq "True") -and ($stage -lt 2)){
             # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
             $filterObjects = $object | Where-Object { $_.Synced -match "True" -and $_.Smeshing -match "True" } # -and $_.Host -match "localhost"
             if ($filterObjects) {
-                $privateOnlineNodes = $filterObjects[0] #custom setting for me
+                $privateOnlineNodes = $filterObjects[0]
             }
             else {
                 $privateOnlineNodes = $null
@@ -351,7 +353,7 @@ function main {
         $object | ForEach-Object {
             $props = 'Name', 'NodeID', 'Host'
             if ($ShowPorts -eq "True") { $props += 'Port', 'Port2' }
-            $props += 'Peers', 'SU', 'SizeTiB', 'Synced', 'Top', 'Verified', 'Version', 'Smeshing', 'RWD'
+            $props += 'Peers', 'SU', 'SizeTiB', 'Synced', 'Layer', 'Verified', 'Version', 'Smeshing', 'RWD'
             if ($showELG -eq "True") { $props += 'ELG' }
             if ($checkIfBanned -eq "True") { $props += 'BAN' }
             $_ | Select-Object $props
@@ -380,19 +382,24 @@ function main {
         Write-Host `n
     
         Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
-        Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch -ForegroundColor Green
+		if ($epoch) {
+			Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch -ForegroundColor Green
+		}
+		if ($topLayer) {
+			Write-Host "Current Layer:" -ForegroundColor Cyan -nonewline; Write-Host $topLayer -ForegroundColor Green
+		}
         if ($totalLayers) {
-            Write-Host " Total Layers: " -ForegroundColor Cyan -nonewline; Write-Host ($totalLayers) -ForegroundColor Yellow -nonewline; Write-Host " Layers"
+            Write-Host "Total Layers: " -ForegroundColor Cyan -nonewline; Write-Host ($totalLayers) -ForegroundColor Yellow -nonewline; Write-Host " Layers"
         }
         if ($showWalletBalance -eq "True") {
-            Write-Host "      Balance: " -ForegroundColor Cyan -NoNewline; Write-Host "$balanceSMH" -ForegroundColor White -NoNewline; Write-Host " $($coinbase)" -ForegroundColor Cyan
+            Write-Host "Balance: " -ForegroundColor Cyan -NoNewline; Write-Host "$balanceSMH" -ForegroundColor White -NoNewline; Write-Host " $($coinbase)" -ForegroundColor Cyan
         }
         if ($highestAtx) {
-            Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $highestAtx.id.id) -ForegroundColor Green
+            Write-Host "Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $highestAtx.id.id) -ForegroundColor Green
         }
         else {
             if ($highestAtxJob) {
-                Write-Host "  Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host "updating ... " -ForegroundColor DarkGray
+                Write-Host "Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host "updating ... " -ForegroundColor DarkGray
             }
         }
         Write-Host "--------------------------------------------------------------------------------" -ForegroundColor Yellow
@@ -402,7 +409,7 @@ function main {
         $newline = "`r`n"
     
         #Version Check
-        if ($null -ne $gitVersion) {
+        if ($gitVersion -and $node.version) {
             $currentVersion = ($gitVersion -split "-")[0] -replace "[^.0-9]"
             Write-Host "Github Go-Spacemesh version: $($gitVersion)" -ForegroundColor Green
             foreach ($node in ($object | Where-Object { $_.synced -notmatch "Offline" })) {
@@ -490,15 +497,22 @@ function main {
             "⠀⠨", "⠀⢐", "⠀⡐", "⠀⠠", "⠀⢀", "⠀⡀"
         )
         $frameCount = $frames.Count
-    
+		if ($stage -eq 4) {
+			$stage = 0
+		}
+		if ($stage -gt 0) {
+			$stage = $stage -1
+		}
+
         :waitloop
-        while ($true) {
+        while ($stage -eq 0) {
             for ($i = 0; $i -lt $frames.Count; $i++) {
                 $tableRefreshTimeElapsed = $tableRefreshTimer.Elapsed.TotalSeconds + 4
                 if ($tableRefreshTimeElapsed -ge $tableRefreshTime) {
                     break waitloop
                 }
                 if ($highestAtxJob.State -eq "Completed") {
+					$stage = 4
                     break waitloop
                 }
                 if ([System.Console]::KeyAvailable) {
@@ -518,12 +532,12 @@ function main {
                 Start-Sleep -Milliseconds 100
             }
         }
-            
+		$relativeCursorPosition.Y = $originalPosition.Y - $host.UI.RawUI.WindowPosition.Y
         [Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
         [Console]::Write($clearmsg)
         [Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
         Write-Host "Updating..." -NoNewline
-    
+
         # Reset some variables every hour
         $OneHoursElapsed = $OneHourTimer.Elapsed.TotalHours
         if ($OneHoursElapsed -ge 1) {
@@ -720,7 +734,7 @@ function printSMMonitorLogo {
     # Start-Sleep $logoDelay
     # Clear-Host
 }
-    
+
 function applyColumnRules {
     # Colors: Black, Blue, Cyan, DarkBlue, DarkCyan, DarkGray, DarkGreen, DarkMagenta, DarkRed, DarkYellow, Gray, Green, Magenta, Red, White, Yellow
     return	@(
@@ -749,5 +763,5 @@ function applyColumnRules {
         @{ Column = "ELG"; Value = $poetWait; ForegroundColor = "Yellow"; BackgroundColor = $DefaultBackgroundColor }
     )
 }
-    
+
 main
