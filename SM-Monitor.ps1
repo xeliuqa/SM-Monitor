@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 3.02
+.VERSION 3.03
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -229,7 +229,6 @@ function main {
                 }
                 else { $node.ban = " -" }
             }
-    
             $syncNodesCopy[$_.name] = $node
         }
     
@@ -410,12 +409,12 @@ function main {
         $newline = "`r`n"
     
         #Version Check
-        if ($gitVersion -and $node.version) {
+        if ($gitVersion) {
             $currentVersion = ($gitVersion -split "-")[0] -replace "[^.0-9]"
-            Write-Host "Github Go-Spacemesh version: $($gitVersion)" -ForegroundColor Green
             foreach ($node in ($object | Where-Object { $_.synced -notmatch "Offline" })) {
                 $node.version = ($node.version -split "-")[0] -replace "[^.0-9]"
                 if ([version]$node.version -lt [version]$currentVersion) {
+			        Write-Host "Github Go-Spacemesh version: $($gitVersion)" -ForegroundColor Green
                     Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Outdated!" -ForegroundColor DarkYellow
                     break
                 }
