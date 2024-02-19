@@ -60,6 +60,7 @@ $nodeList = @(
 function main {
     $syncNodes = [System.Collections.Hashtable]::Synchronized(@{})
     [System.Console]::CursorVisible = $false
+    $OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
     $ErrorActionPreference = 'SilentlyContinue' # 'Inquire', 'SilentlyContinue'
     $OneHourTimer = [System.Diagnostics.Stopwatch]::StartNew()
     $tableRefreshTimer = [System.Diagnostics.Stopwatch]::StartNew()
@@ -157,10 +158,10 @@ function main {
                                 $eligibilities += $json.eligibilities
                             }
                             if ($json.atxPublished) {
-                                $atxPublished += $json.atxPublished
+                                $atxPublished = $json.atxPublished
                             }
                             if ($json.poetWaitProof) {
-                                $poetWaitProof += $json.poetWaitProof
+                                $poetWaitProof = $json.poetWaitProof
                             }
                         }
                         Catch {
