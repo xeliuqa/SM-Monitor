@@ -1,3 +1,9 @@
+Please note, 
+Latest version of Sm-monitor requires PowerShell 7+ to run.
+You can get it at
+https://github.com/PowerShell/PowerShell/releases/tag/v7.4.1
+
+
 # SM-Monitor
 Simple monitor for Spacemesh nodes<br>
 
