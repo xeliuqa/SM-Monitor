@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 3.02
+.VERSION 3.03
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -34,6 +34,7 @@ $ShowPorts = "False" # True to show node's ports. "True" or "False"
 $queryHighestAtx = "False" # "True" to request for Highest ATX. "True" or "False"
 $checkIfBanned = "False" # "True" if you want to check if the node is banned. "True" or "False"
 $showELG = "True"  # "True" if you want to show the number of Epoch when the node will be eligible for rewards. "True" or "False"
+$utf8 = "True" # Set to "False" if icons don't display correctly
 
 $grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in the same folder.
                            #Linux users, you know what to do!
@@ -60,6 +61,8 @@ $nodeList = @(
 function main {
     $syncNodes = [System.Collections.Hashtable]::Synchronized(@{})
     [System.Console]::CursorVisible = $false
+    [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
+    $PSDefaultParameterValues['*:Encoding'] = 'utf8'
     $ErrorActionPreference = 'SilentlyContinue' # 'Inquire', 'SilentlyContinue'
     $OneHourTimer = [System.Diagnostics.Stopwatch]::StartNew()
     $tableRefreshTimer = [System.Diagnostics.Stopwatch]::StartNew()
@@ -157,10 +160,10 @@ function main {
                                 $eligibilities += $json.eligibilities
                             }
                             if ($json.atxPublished) {
-                                $atxPublished += $json.atxPublished
+                                $atxPublished = $json.atxPublished
                             }
                             if ($json.poetWaitProof) {
-                                $poetWaitProof += $json.poetWaitProof
+                                $poetWaitProof = $json.poetWaitProof
                             }
                         }
                         Catch {
@@ -219,17 +222,16 @@ function main {
                     $response = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.MeshService.MalfeasanceStream")) 2>$null
                     if ($response -match "MALFEASANCE_HARE") {
                         if ($response -match $publicKeylow) {
-                            $node.ban = "`u{1F480}" #"yes"
+                            if ($using:utf8 -eq "False") {$node.ban = " X"} else {$node.ban = "`u{1F480}"} #"yes"
                         }
                         else {
-                            $node.ban = "`u{1f197}" #"no"
+                            if ($using:utf8 -eq "False") {$node.ban = " OK"} else {$node.ban = "`u{1f197}"} #"no"
                         }
                     }
                     else { $node.ban = "" }
                 }
                 else { $node.ban = " -" }
             }
-    
             $syncNodesCopy[$_.name] = $node
         }
     
@@ -410,12 +412,12 @@ function main {
         $newline = "`r`n"
     
         #Version Check
-        if ($gitVersion -and $node.version) {
+        if ($gitVersion) {
             $currentVersion = ($gitVersion -split "-")[0] -replace "[^.0-9]"
-            Write-Host "Github Go-Spacemesh version: $($gitVersion)" -ForegroundColor Green
             foreach ($node in ($object | Where-Object { $_.synced -notmatch "Offline" })) {
                 $node.version = ($node.version -split "-")[0] -replace "[^.0-9]"
                 if ([version]$node.version -lt [version]$currentVersion) {
+			        Write-Host "Github Go-Spacemesh version: $($gitVersion)" -ForegroundColor Green
                     Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Outdated!" -ForegroundColor DarkYellow
                     break
                 }
@@ -487,16 +489,18 @@ function main {
         $relativeCursorPosition = New-Object System.Management.Automation.Host.Coordinates
     
         $clearmsg = " " * ([System.Console]::WindowWidth - 1)
-        #$frames = @('+', 'x', '*') 
-        #$frames = @('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏') 
-        $frames = @(
-            "⢀⠀", "⡀⠀", "⠄⠀", "⢂⠀", "⡂⠀", "⠅⠀", "⢃⠀", "⡃⠀", "⠍⠀", "⢋⠀",
-            "⡋⠀", "⠍⠁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙", "⠉⠙", "⠉⠩",
-            "⠈⢙", "⠈⡙", "⢈⠩", "⡀⢙", "⠄⡙", "⢂⠩", "⡂⢘", "⠅⡘", "⢃⠨", "⡃⢐",
-            "⠍⡐", "⢋⠠", "⡋⢀", "⠍⡁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙",
-            "⠉⠙", "⠉⠩", "⠈⢙", "⠈⡙", "⠈⠩", "⠀⢙", "⠀⡙", "⠀⠩", "⠀⢘", "⠀⡘",
-            "⠀⠨", "⠀⢐", "⠀⡐", "⠀⠠", "⠀⢀", "⠀⡀"
-        )
+        if ($utf8 -eq "False") {
+            $frames = @("|","/","-","\") 
+        } else {
+            $frames = @(
+                "⢀⠀", "⡀⠀", "⠄⠀", "⢂⠀", "⡂⠀", "⠅⠀", "⢃⠀", "⡃⠀", "⠍⠀", "⢋⠀",
+                "⡋⠀", "⠍⠁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙", "⠉⠙", "⠉⠩",
+                "⠈⢙", "⠈⡙", "⢈⠩", "⡀⢙", "⠄⡙", "⢂⠩", "⡂⢘", "⠅⡘", "⢃⠨", "⡃⢐",
+                "⠍⡐", "⢋⠠", "⡋⢀", "⠍⡁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙",
+                "⠉⠙", "⠉⠩", "⠈⢙", "⠈⡙", "⠈⠩", "⠀⢙", "⠀⡙", "⠀⠩", "⠀⢘", "⠀⡘",
+                "⠀⠨", "⠀⢐", "⠀⡐", "⠀⠠", "⠀⢀", "⠀⡀"
+            )
+        }
         $frameCount = $frames.Count
         if ($stage -eq 4) {
             $stage = 0
