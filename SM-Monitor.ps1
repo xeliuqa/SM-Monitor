@@ -34,6 +34,7 @@ $ShowPorts = "False" # True to show node's ports. "True" or "False"
 $queryHighestAtx = "False" # "True" to request for Highest ATX. "True" or "False"
 $checkIfBanned = "False" # "True" if you want to check if the node is banned. "True" or "False"
 $showELG = "True"  # "True" if you want to show the number of Epoch when the node will be eligible for rewards. "True" or "False"
+$utf8 = "True" # Set to "False" if icons don't display correctly
 
 $grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in the same folder.
                            #Linux users, you know what to do!
@@ -60,7 +61,8 @@ $nodeList = @(
 function main {
     $syncNodes = [System.Collections.Hashtable]::Synchronized(@{})
     [System.Console]::CursorVisible = $false
-    $OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+    [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
+    $PSDefaultParameterValues['*:Encoding'] = 'utf8'
     $ErrorActionPreference = 'SilentlyContinue' # 'Inquire', 'SilentlyContinue'
     $OneHourTimer = [System.Diagnostics.Stopwatch]::StartNew()
     $tableRefreshTimer = [System.Diagnostics.Stopwatch]::StartNew()
@@ -220,10 +222,10 @@ function main {
                     $response = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.MeshService.MalfeasanceStream")) 2>$null
                     if ($response -match "MALFEASANCE_HARE") {
                         if ($response -match $publicKeylow) {
-                            $node.ban = "`u{1F480}" #"yes"
+                            if ($using:utf8 -eq "False") {$node.ban = " X"} else {$node.ban = "`u{1F480}"} #"yes"
                         }
                         else {
-                            $node.ban = "`u{1f197}" #"no"
+                            if ($using:utf8 -eq "False") {$node.ban = " OK"} else {$node.ban = "`u{1f197}"} #"no"
                         }
                     }
                     else { $node.ban = "" }
@@ -487,16 +489,18 @@ function main {
         $relativeCursorPosition = New-Object System.Management.Automation.Host.Coordinates
     
         $clearmsg = " " * ([System.Console]::WindowWidth - 1)
-        #$frames = @('+', 'x', '*') 
-        #$frames = @('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏') 
-        $frames = @(
-            "⢀⠀", "⡀⠀", "⠄⠀", "⢂⠀", "⡂⠀", "⠅⠀", "⢃⠀", "⡃⠀", "⠍⠀", "⢋⠀",
-            "⡋⠀", "⠍⠁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙", "⠉⠙", "⠉⠩",
-            "⠈⢙", "⠈⡙", "⢈⠩", "⡀⢙", "⠄⡙", "⢂⠩", "⡂⢘", "⠅⡘", "⢃⠨", "⡃⢐",
-            "⠍⡐", "⢋⠠", "⡋⢀", "⠍⡁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙",
-            "⠉⠙", "⠉⠩", "⠈⢙", "⠈⡙", "⠈⠩", "⠀⢙", "⠀⡙", "⠀⠩", "⠀⢘", "⠀⡘",
-            "⠀⠨", "⠀⢐", "⠀⡐", "⠀⠠", "⠀⢀", "⠀⡀"
-        )
+        if ($utf8 -eq "False") {
+            $frames = @("|","/","-","\") 
+        } else {
+            $frames = @(
+                "⢀⠀", "⡀⠀", "⠄⠀", "⢂⠀", "⡂⠀", "⠅⠀", "⢃⠀", "⡃⠀", "⠍⠀", "⢋⠀",
+                "⡋⠀", "⠍⠁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙", "⠉⠙", "⠉⠩",
+                "⠈⢙", "⠈⡙", "⢈⠩", "⡀⢙", "⠄⡙", "⢂⠩", "⡂⢘", "⠅⡘", "⢃⠨", "⡃⢐",
+                "⠍⡐", "⢋⠠", "⡋⢀", "⠍⡁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙",
+                "⠉⠙", "⠉⠩", "⠈⢙", "⠈⡙", "⠈⠩", "⠀⢙", "⠀⡙", "⠀⠩", "⠀⢘", "⠀⡘",
+                "⠀⠨", "⠀⢐", "⠀⡐", "⠀⠠", "⠀⢀", "⠀⡀"
+            )
+        }
         $frameCount = $frames.Count
         if ($stage -eq 4) {
             $stage = 0
