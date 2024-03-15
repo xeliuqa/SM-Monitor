@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 3.03
+.VERSION 3.04
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -104,8 +104,11 @@ function main {
                     $node.syncedLayer = $status.syncedLayer.number
                     $node.topLayer = $status.topLayer.number
                     $node.verifiedLayer = $status.verifiedLayer.number
-                    $publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID")) | ConvertFrom-Json).publicKey 2>$null
-                    if ($publicKey) {
+                    $publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherIDs")) | ConvertFrom-Json).publicKeys[0] 2>$null
+                    if (!$publicKey) {
+                        $publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID")) | ConvertFrom-Json).publicKey 2>$null
+					}
+					if ($publicKey) {
                         $node.publicKey = $publicKey
                     }
                     if ($status.isSynced) {
