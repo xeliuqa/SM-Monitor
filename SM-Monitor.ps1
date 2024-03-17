@@ -289,7 +289,7 @@ function main {
                 Port2    = $node.port2
                 Peers    = $node.connectedPeers
                 SU       = $node.numUnits
-                SizeTiB  = if ($node.numUnits -eq $null -or $node.numUnits -eq 0) { $null } else { [Math]::Round($node.numUnits * 64 * 0.0009765625, 3) }
+                SizeTiB  = if ($null -eq $node.numUnits -or $node.numUnits -eq 0) { $null } else { [Math]::Round($node.numUnits * 64 * 0.0009765625, 3) }
                 Synced   = $node.synced
                 Layer    = $node.syncedLayer
                 Top      = $node.topLayer
