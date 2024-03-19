@@ -31,6 +31,6 @@ Please note that to access Nodes remotely you need to change config.mainnet.json
 `grpc-private-listener": "0.0.0.0:9093`<br><br>
 
 Disable Powershell Remote security.<br>
--Open Powershell in admin and insert code
-  Set-ExecutionPolicy RemoteSigned<br>
+-Open Powershell in admin and insert code<br>
+  Set-ExecutionPolicy RemoteSigned
 
