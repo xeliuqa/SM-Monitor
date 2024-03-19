@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 3.04
+.VERSION 3.03
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -15,7 +15,7 @@ With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa
 
 Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 	-------------------------------------------------------------------------------------------- #>
-
+$version = "3.02"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 
@@ -49,12 +49,9 @@ $fileFormat = 0
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     
 $nodeList = @(
-    @{ name = "Node_01"; host = "192.168.1.xx"; port = 11001; port2 = 11002 },
-    @{ name = "Node_02"; host = "192.168.1.xx"; port = 12001; port2 = 12002 },
-    @{ name = "Node_03"; host = "192.168.1.xx"; port = 13001; port2 = 13002 },
-    @{ name = "Node_04"; host = "192.168.1.xx"; port = 14001; port2 = 14002 },
-    @{ name = "SMAPP_Server"; host = "192.168.1.xx"; port = 9092; port2 = 9093 },
-    @{ name = "SMAPP_Home"; host = "localhost"; port = 9092; port2 = 9093 }
+    @{ name = "Team24"; host = "192.168.1.14"; port = 1012; port2 = 1013; },
+    @{ name = "Node 10"; host = "192.168.1.14"; port3 = 1014 },
+    @{ name = "Node 8"; host = "192.168.1.14"; port3 = 1014; }
 )
 ################ Settings Finish ###############
     
@@ -142,8 +139,15 @@ function main {
     
                 if ($null -ne $version) {
                     $node.version = $version
+                }    
+
+                $postService = $null
+                $postService = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port3) spacemesh.v1.PostInfoService.PostStates")) | ConvertFrom-Json).states  2>$null
+                foreach ($post in $states){
+                    $post.name = ($postService.name).Trim(".", "key")
+                    $post.states = $postService.state
                 }
-    
+
                 $eventstream = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.AdminService.EventsStream")) 2>$null
                 $eventstream = $eventstream -split "`n" | Where-Object { $_ }
                 $eligibilities = @()
@@ -295,6 +299,8 @@ function main {
                 Top      = $node.topLayer
                 Verified = $node.verifiedLayer
                 Version  = $node.version
+                Pname    = $post.name
+                Pstate   = $post.state
                 Smeshing = $node.smeshing
                 RWD      = $node.rewards
                 ELG      = $node.atx
@@ -359,12 +365,12 @@ function main {
         $object | ForEach-Object {
             $props = 'Name', 'NodeID', 'Host'
             if ($ShowPorts -eq "True") { $props += 'Port', 'Port2' }
-            $props += 'Peers', 'SU', 'SizeTiB', 'Synced', 'Layer', 'Verified', 'Version', 'Smeshing', 'RWD'
+            $props += 'Peers', 'SU', 'SizeTiB', 'Synced', 'Layer', 'Verified', 'Version', 'Pname', 'Pstate', 'Smeshing', 'RWD'
             if ($showELG -eq "True") { $props += 'ELG' }
             if ($checkIfBanned -eq "True") { $props += 'BAN' }
             $_ | Select-Object $props
         } | ColorizeMyObject -ColumnRules $columnRules
-        #$object | Select-Object Name, NodeID, Host, Port, Peers, SU, SizeTiB, Synced, Top, Verified, Version, Smeshing, RWD, ELG, BAN | ColorizeMyObject -ColumnRules $columnRules
+        #$object | Select-Object Name, NodeID, Host, Port, Peers, SU, SizeTiB, Synced, Top, Verified, Version, Pname, Pstate, Smeshing, RWD, ELG, BAN | ColorizeMyObject -ColumnRules $columnRules
             
         $tableRefreshTimer.Restart()
     
@@ -409,6 +415,13 @@ function main {
             }
         }
         Write-Host "--------------------------------------------------------------------------------" -ForegroundColor Yellow
+        #Version Check
+        $tagList = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/xeliuqa/SM-Monitor/releases/latest"
+        $taglist.Name = ($taglist.Name -split "-")[0] -replace "[^.0-9]"
+        if ([version[]]$taglist.Name -gt $version) {
+        Write-Host "Version: $($version)" -ForegroundColor Green
+        Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> New SM-Monitor update avaiable! $($taglist.Name)" -ForegroundColor DarkYellow
+}
         Write-Host "ELG - The number of Epoch when the node will be eligible for rewards. " -ForegroundColor DarkGray
     
         Write-Host `n
@@ -761,6 +774,10 @@ function applyColumnRules {
         @{ Column = "Version"; Value = "*"; ForegroundColor = "Red"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Version"; Value = $gitVersion; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Version"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
+        @{ Column = "Pname"; Value = $Pname; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
+        @{ Column = "Pname"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
+        @{ Column = "Pname"; Value = $Psate; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
+        @{ Column = "Pstate"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Smeshing"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Smeshing"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = $DefaultBackgroundColor },
