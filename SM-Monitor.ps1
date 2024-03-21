@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 3.03
+.VERSION 3.04
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -15,7 +15,7 @@ With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa
 
 Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 	-------------------------------------------------------------------------------------------- #>
-$version = "3.02"
+$version = "3.04"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 
@@ -37,7 +37,7 @@ $showELG = "True"  # "True" if you want to show the number of Epoch when the nod
 $utf8 = "True" # Set to "False" if icons don't display correctly
 
 $grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in the same folder.
-                           #Linux users, you know what to do!
+#Linux users, you know what to do!
 
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 $fileFormat = 0
@@ -48,11 +48,23 @@ $fileFormat = 0
 # 3 - use it for layers tracking website (by PlainLazy: http://fcmx.net/sm-eligibilities/)
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     
-$nodeList = @(
-    @{ name = "Team24"; host = "192.168.1.14"; port = 1012; port2 = 1013; },
-    @{ name = "Node 10"; host = "192.168.1.14"; port3 = 1014 },
-    @{ name = "Node 8"; host = "192.168.1.14"; port3 = 1014; }
-)
+$nodeListFile = ".\nodeList.txt"
+if (Test-Path $nodeListFile) {
+    $nodeListContent = Get-Content $nodeListFile
+    $nodeList = $nodeListContent | ForEach-Object {
+        $nodeInfo = $_ -split ","
+        @{
+            name  = $nodeInfo[0].Trim()
+            host  = $nodeInfo[1].Trim()
+            port  = [int]$nodeInfo[2].Trim()
+            port2 = [int]$nodeInfo[3].Trim()
+        }
+    }
+}
+else {
+    Write-Host "Error: nodeList.txt not found." -ForegroundColor Red
+    exit 1
+}
 ################ Settings Finish ###############
     
 function main {
@@ -104,8 +116,8 @@ function main {
                     $publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherIDs")) | ConvertFrom-Json).publicKeys[0] 2>$null
                     if (!$publicKey) {
                         $publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID")) | ConvertFrom-Json).publicKey 2>$null
-					}
-					if ($publicKey) {
+                    }
+                    if ($publicKey) {
                         $node.publicKey = $publicKey
                     }
                     if ($status.isSynced) {
@@ -143,7 +155,7 @@ function main {
 
                 $postService = $null
                 $postService = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port3) spacemesh.v1.PostInfoService.PostStates")) | ConvertFrom-Json).states  2>$null
-                foreach ($post in $states){
+                foreach ($post in $states) {
                     $post.name = ($postService.name).Trim(".", "key")
                     $post.states = $postService.state
                 }
@@ -205,7 +217,7 @@ function main {
                 }
 
                 $smeshing = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.IsSmeshing")) | ConvertFrom-Json)    2>$null
-                if ($null -ne $smeshing.isSmeshing) {$node.smeshing = "True" } else { $node.smeshing = "False" }
+                if ($null -ne $smeshing.isSmeshing) { $node.smeshing = "True" } else { $node.smeshing = "False" }
                 
             }
             
@@ -229,10 +241,10 @@ function main {
                     $response = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.MeshService.MalfeasanceStream")) 2>$null
                     if ($response -match "MALFEASANCE_HARE") {
                         if ($response -match $publicKeylow) {
-                            if ($using:utf8 -eq "False") {$node.ban = " X"} else {$node.ban = "`u{1F480}"} #"yes"
+                            if ($using:utf8 -eq "False") { $node.ban = " X" } else { $node.ban = "`u{1F480}" } #"yes"
                         }
                         else {
-                            if ($using:utf8 -eq "False") {$node.ban = " OK"} else {$node.ban = "`u{1f197}"} #"no"
+                            if ($using:utf8 -eq "False") { $node.ban = " OK" } else { $node.ban = "`u{1f197}" } #"no"
                         }
                     }
                     else { $node.ban = "" }
@@ -299,8 +311,6 @@ function main {
                 Top      = $node.topLayer
                 Verified = $node.verifiedLayer
                 Version  = $node.version
-                Pname    = $post.name
-                Pstate   = $post.state
                 Smeshing = $node.smeshing
                 RWD      = $node.rewards
                 ELG      = $node.atx
@@ -328,7 +338,7 @@ function main {
             }
         }
     
-        if (($showWalletBalance -eq "True") -and ($stage -lt 2)){
+        if (($showWalletBalance -eq "True") -and ($stage -lt 2)) {
             # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
             $filterObjects = $object | Where-Object { $_.Synced -match "True" -and $_.Smeshing -match "True" } # -and $_.Host -match "localhost"
             if ($filterObjects) {
@@ -365,12 +375,12 @@ function main {
         $object | ForEach-Object {
             $props = 'Name', 'NodeID', 'Host'
             if ($ShowPorts -eq "True") { $props += 'Port', 'Port2' }
-            $props += 'Peers', 'SU', 'SizeTiB', 'Synced', 'Layer', 'Verified', 'Version', 'Pname', 'Pstate', 'Smeshing', 'RWD'
+            $props += 'Peers', 'SU', 'SizeTiB', 'Synced', 'Layer', 'Verified', 'Version', 'Smeshing', 'RWD'
             if ($showELG -eq "True") { $props += 'ELG' }
             if ($checkIfBanned -eq "True") { $props += 'BAN' }
             $_ | Select-Object $props
         } | ColorizeMyObject -ColumnRules $columnRules
-        #$object | Select-Object Name, NodeID, Host, Port, Peers, SU, SizeTiB, Synced, Top, Verified, Version, Pname, Pstate, Smeshing, RWD, ELG, BAN | ColorizeMyObject -ColumnRules $columnRules
+        #$object | Select-Object Name, NodeID, Host, Port, Peers, SU, SizeTiB, Synced, Top, Verified, Version, Smeshing, RWD, ELG, BAN | ColorizeMyObject -ColumnRules $columnRules
             
         $tableRefreshTimer.Restart()
     
@@ -415,13 +425,20 @@ function main {
             }
         }
         Write-Host "--------------------------------------------------------------------------------" -ForegroundColor Yellow
-        #Version Check
-        $tagList = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/xeliuqa/SM-Monitor/releases/latest"
-        $taglist.Name = ($taglist.Name -split "-")[0] -replace "[^.0-9]"
-        if ([version[]]$taglist.Name -gt $version) {
-        Write-Host "Version: $($version)" -ForegroundColor Green
-        Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> New SM-Monitor update avaiable! $($taglist.Name)" -ForegroundColor DarkYellow
-}
+        #SM-Monitor Version Check
+        $OneHoursElapsed = $OneHourTimer.Elapsed.TotalHours
+        if ($OneHoursElapsed -ge 0) {
+            $tagList = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/xeliuqa/SM-Monitor/releases/latest"
+            $taglist.Name = ($taglist.Name -split "-")[0] -replace "[^.0-9]"
+            if ([version[]]$taglist.Name -gt $version) {
+                Write-Host "Version: $($version)" -ForegroundColor Green
+                Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> New SM-Monitor update avaiable! $($taglist.Name)" -ForegroundColor DarkYellow
+            }
+            $OneHourTimer.Restart()
+        }
+        
+
+    
         Write-Host "ELG - The number of Epoch when the node will be eligible for rewards. " -ForegroundColor DarkGray
     
         Write-Host `n
@@ -433,7 +450,7 @@ function main {
             foreach ($node in ($object | Where-Object { $_.synced -notmatch "Offline" })) {
                 $node.version = ($node.version -split "-")[0] -replace "[^.0-9]"
                 if ([version]$node.version -lt [version]$currentVersion) {
-			        Write-Host "Github Go-Spacemesh version: $($gitVersion)" -ForegroundColor Green
+                    Write-Host "Github Go-Spacemesh version: $($gitVersion)" -ForegroundColor Green
                     Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Outdated!" -ForegroundColor DarkYellow
                     break
                 }
@@ -506,8 +523,9 @@ function main {
     
         $clearmsg = " " * ([System.Console]::WindowWidth - 1)
         if ($utf8 -eq "False") {
-            $frames = @("|","/","-","\") 
-        } else {
+            $frames = @("|", "/", "-", "\") 
+        }
+        else {
             $frames = @(
                 "⢀⠀", "⡀⠀", "⠄⠀", "⢂⠀", "⡂⠀", "⠅⠀", "⢃⠀", "⡃⠀", "⠍⠀", "⢋⠀",
                 "⡋⠀", "⠍⠁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙", "⠉⠙", "⠉⠩",
@@ -522,7 +540,7 @@ function main {
             $stage = 0
         }
         if ($stage -gt 0) {
-            $stage = $stage -1
+            $stage = $stage - 1
         }
 
         :waitloop
@@ -774,10 +792,6 @@ function applyColumnRules {
         @{ Column = "Version"; Value = "*"; ForegroundColor = "Red"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Version"; Value = $gitVersion; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Version"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
-        @{ Column = "Pname"; Value = $Pname; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
-        @{ Column = "Pname"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
-        @{ Column = "Pname"; Value = $Psate; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
-        @{ Column = "Pstate"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Smeshing"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Smeshing"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = $DefaultBackgroundColor },
