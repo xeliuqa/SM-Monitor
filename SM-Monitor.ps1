@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 3.04
+.VERSION 3.05
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -10,12 +10,12 @@ SM-Monitor: https://github.com/xeliuqa/SM-Monitor
 Based on: https://discord.com/channels/623195163510046732/691261331382337586/1142174063293370498
 	  and also: https://github.com/PlainLazy/crypto/blob/main/sm_watcher.ps1
 	
-With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa
+With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa == Miguell
 	for the various contributions in making this script awesome
 
 Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 	-------------------------------------------------------------------------------------------- #>
-$version = "3.04"
+$version = "3.05"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 
@@ -427,10 +427,10 @@ function main {
         Write-Host "--------------------------------------------------------------------------------" -ForegroundColor Yellow
         #SM-Monitor Version Check
         $OneHoursElapsed = $OneHourTimer.Elapsed.TotalHours
-        if ($OneHoursElapsed -ge 0) {
+        if ($OneHoursElapsed -ge 2) {
             $tagList = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/xeliuqa/SM-Monitor/releases/latest"
             $taglist.Name = ($taglist.Name -split "-")[0] -replace "[^.0-9]"
-            if ([version[]]$taglist.Name -gt $version) {
+            if ([version[]]$taglist.Name -ne $version) {
                 Write-Host "Version: $($version)" -ForegroundColor Green
                 Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> New SM-Monitor update avaiable! $($taglist.Name)" -ForegroundColor DarkYellow
             }
