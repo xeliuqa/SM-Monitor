@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 3.05
+.VERSION 3.04
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -10,12 +10,12 @@ SM-Monitor: https://github.com/xeliuqa/SM-Monitor
 Based on: https://discord.com/channels/623195163510046732/691261331382337586/1142174063293370498
 	  and also: https://github.com/PlainLazy/crypto/blob/main/sm_watcher.ps1
 	
-With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa == Miguell
+With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa
 	for the various contributions in making this script awesome
 
 Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 	-------------------------------------------------------------------------------------------- #>
-$version = "3.05"
+$version = "3.04"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 
@@ -54,14 +54,13 @@ if (Test-Path $nodeListFile) {
     $nodeList = $nodeListContent | ForEach-Object {
         $nodeInfo = $_ -split ","
         @{
-            name  = $nodeInfo[0].Trim()
-            host  = $nodeInfo[1].Trim()
-            port  = [int]$nodeInfo[2].Trim()
+            name = $nodeInfo[0].Trim()
+            host = $nodeInfo[1].Trim()
+            port = [int]$nodeInfo[2].Trim()
             port2 = [int]$nodeInfo[3].Trim()
         }
     }
-}
-else {
+} else {
     Write-Host "Error: nodeList.txt not found." -ForegroundColor Red
     exit 1
 }
@@ -311,6 +310,8 @@ function main {
                 Top      = $node.topLayer
                 Verified = $node.verifiedLayer
                 Version  = $node.version
+                Pname    = $post.name
+                Pstate   = $post.state
                 Smeshing = $node.smeshing
                 RWD      = $node.rewards
                 ELG      = $node.atx
@@ -375,12 +376,12 @@ function main {
         $object | ForEach-Object {
             $props = 'Name', 'NodeID', 'Host'
             if ($ShowPorts -eq "True") { $props += 'Port', 'Port2' }
-            $props += 'Peers', 'SU', 'SizeTiB', 'Synced', 'Layer', 'Verified', 'Version', 'Smeshing', 'RWD'
+            $props += 'Peers', 'SU', 'SizeTiB', 'Synced', 'Layer', 'Verified', 'Version', 'Pname', 'Pstate', 'Smeshing', 'RWD'
             if ($showELG -eq "True") { $props += 'ELG' }
             if ($checkIfBanned -eq "True") { $props += 'BAN' }
             $_ | Select-Object $props
         } | ColorizeMyObject -ColumnRules $columnRules
-        #$object | Select-Object Name, NodeID, Host, Port, Peers, SU, SizeTiB, Synced, Top, Verified, Version, Smeshing, RWD, ELG, BAN | ColorizeMyObject -ColumnRules $columnRules
+        #$object | Select-Object Name, NodeID, Host, Port, Peers, SU, SizeTiB, Synced, Top, Verified, Version, Pname, Pstate, Smeshing, RWD, ELG, BAN | ColorizeMyObject -ColumnRules $columnRules
             
         $tableRefreshTimer.Restart()
     
@@ -427,167 +428,167 @@ function main {
         Write-Host "--------------------------------------------------------------------------------" -ForegroundColor Yellow
         #SM-Monitor Version Check
         $OneHoursElapsed = $OneHourTimer.Elapsed.TotalHours
-        if ($OneHoursElapsed -ge 2) {
+        if ($OneHoursElapsed -ge 0) {
             $tagList = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/xeliuqa/SM-Monitor/releases/latest"
             $taglist.Name = ($taglist.Name -split "-")[0] -replace "[^.0-9]"
-            if ([version[]]$taglist.Name -ne $version) {
+            if ([version[]]$taglist.Name -gt $version) {
                 Write-Host "Version: $($version)" -ForegroundColor Green
                 Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> New SM-Monitor update avaiable! $($taglist.Name)" -ForegroundColor DarkYellow
             }
-            $OneHourTimer.Restart()
-        }
+        $OneHourTimer.Restart()
+    }
         
 
     
-        Write-Host "ELG - The number of Epoch when the node will be eligible for rewards. " -ForegroundColor DarkGray
+    Write-Host "ELG - The number of Epoch when the node will be eligible for rewards. " -ForegroundColor DarkGray
     
-        Write-Host `n
-        $newline = "`r`n"
+    Write-Host `n
+    $newline = "`r`n"
     
-        #Version Check
-        if ($gitVersion) {
-            $currentVersion = ($gitVersion -split "-")[0] -replace "[^.0-9]"
-            foreach ($node in ($object | Where-Object { $_.synced -notmatch "Offline" })) {
-                $node.version = ($node.version -split "-")[0] -replace "[^.0-9]"
-                if ([version]$node.version -lt [version]$currentVersion) {
-                    Write-Host "Github Go-Spacemesh version: $($gitVersion)" -ForegroundColor Green
-                    Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Outdated!" -ForegroundColor DarkYellow
-                    break
-                }
+    #Version Check
+    if ($gitVersion) {
+        $currentVersion = ($gitVersion -split "-")[0] -replace "[^.0-9]"
+        foreach ($node in ($object | Where-Object { $_.synced -notmatch "Offline" })) {
+            $node.version = ($node.version -split "-")[0] -replace "[^.0-9]"
+            if ([version]$node.version -lt [version]$currentVersion) {
+                Write-Host "Github Go-Spacemesh version: $($gitVersion)" -ForegroundColor Green
+                Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Outdated!" -ForegroundColor DarkYellow
+                break
             }
-        }
-    
-        if ("Offline" -in $object.synced) {
-            Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Offline!" -ForegroundColor DarkYellow
-            if ($emailEnable -eq "True" -And (isValidEmail($myEmail))) {
-                $Body = "Warning, some nodes are offline!"
-    
-                foreach ($node in $syncNodes.Values) {
-                    if (!$node.online) {
-                        $Body = $body + $newLine + $node.name + " " + $node.Host + " " + $node.Smeshing
-                        if (!$node.emailsent) {
-                            $OKtoSend = "True"
-                            $node.emailsent = "True"
-                        }
-                    }
-                }
-    
-                if ($OKtoSend) {
-                    $From = "001smmonitor@gmail.com"
-                    $To = $myEmail
-                    $Subject = "Your Spacemesh node is offline"
-    
-                    # Define the SMTP server details
-                    $SMTPServer = "smtp.gmail.com"
-                    $SMTPPort = 587
-                    $SMTPUsername = "001smmonitor@gmail.com"
-                    $SMTPPassword = "uehd zqix qrbh gejb"
-    
-                    # Create a new email object
-                    $Email = New-Object System.Net.Mail.MailMessage
-                    $Email.From = $From
-                    $Email.To.Add($To)
-                    $Email.Subject = $Subject
-                    $Email.Body = $Body
-                    # Uncomment below to send HTML formatted email
-                    #$Email.IsBodyHTML = $true
-    
-                    # Create an SMTP client object and send the email
-                    $SMTPClient = New-Object System.Net.Mail.SmtpClient($SMTPServer, $SMTPPort)
-                    $SMTPClient.EnableSsl = $true
-                    $SMTPClient.Credentials = New-Object System.Net.NetworkCredential($SMTPUsername, $SMTPPassword)
-    
-                    Try {
-                        $SMTPClient.Send($Email)
-                    }
-                    Catch {
-                        Write-Host "oops! SMTP error, please check your settings." -ForegroundColor DarkRed
-                    }
-                    Finally {
-                        Write-Host "Email sent..." -ForegroundColor DarkYellow
-                        $OKtoSend = ""
-                    }
-                }
-            }
-        }
-    
-        $currentDate = Get-Date -Format HH:mm:ss
-        # Refresh
-        Write-Host `n
-        Write-Host "Press SPACE to refresh" -ForegroundColor DarkGray
-        Write-Host "Last refresh:  " -ForegroundColor Yellow -nonewline; Write-Host "$currentDate" -ForegroundColor Green 
-            
-        # Get original position of cursor
-        $originalPosition = $host.UI.RawUI.CursorPosition
-        $relativeCursorPosition = New-Object System.Management.Automation.Host.Coordinates
-    
-        $clearmsg = " " * ([System.Console]::WindowWidth - 1)
-        if ($utf8 -eq "False") {
-            $frames = @("|", "/", "-", "\") 
-        }
-        else {
-            $frames = @(
-                "⢀⠀", "⡀⠀", "⠄⠀", "⢂⠀", "⡂⠀", "⠅⠀", "⢃⠀", "⡃⠀", "⠍⠀", "⢋⠀",
-                "⡋⠀", "⠍⠁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙", "⠉⠙", "⠉⠩",
-                "⠈⢙", "⠈⡙", "⢈⠩", "⡀⢙", "⠄⡙", "⢂⠩", "⡂⢘", "⠅⡘", "⢃⠨", "⡃⢐",
-                "⠍⡐", "⢋⠠", "⡋⢀", "⠍⡁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙",
-                "⠉⠙", "⠉⠩", "⠈⢙", "⠈⡙", "⠈⠩", "⠀⢙", "⠀⡙", "⠀⠩", "⠀⢘", "⠀⡘",
-                "⠀⠨", "⠀⢐", "⠀⡐", "⠀⠠", "⠀⢀", "⠀⡀"
-            )
-        }
-        $frameCount = $frames.Count
-        if ($stage -eq 4) {
-            $stage = 0
-        }
-        if ($stage -gt 0) {
-            $stage = $stage - 1
-        }
-
-        :waitloop
-        while ($stage -eq 0) {
-            for ($i = 0; $i -lt $frames.Count; $i++) {
-                $tableRefreshTimeElapsed = $tableRefreshTimer.Elapsed.TotalSeconds + 4
-                if ($tableRefreshTimeElapsed -ge $tableRefreshTime) {
-                    break waitloop
-                }
-                if ($highestAtxJob.State -eq "Completed") {
-                    $stage = 4
-                    break waitloop
-                }
-                if ([System.Console]::KeyAvailable) {
-                    $key = [System.Console]::ReadKey($true)
-                    if ($key.Key -eq "Spacebar") { break waitloop }
-                }
-                $secondsLeft = ($tableRefreshTime - $tableRefreshTimeElapsed) -as [int]
-                $frame = $frames[$i % $frameCount]
-                $bufferHeight = $host.UI.RawUI.BufferSize.Height
-                $relativeCursorPosition.Y = $originalPosition.Y - $host.UI.RawUI.WindowPosition.Y
-                if ($bufferHeight -gt $relativeCursorPosition.Y) {
-                    [Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
-                    [Console]::Write($clearmsg)
-                    [Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
-                    Write-Host "Next refresh in: " -nonewline -ForegroundColor Yellow; Write-Host "$($secondsLeft.ToString().PadLeft(3, ' ')) $frame" -nonewline
-                }
-                Start-Sleep -Milliseconds 100
-            }
-        }
-        $relativeCursorPosition.Y = $originalPosition.Y - $host.UI.RawUI.WindowPosition.Y
-        [Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
-        [Console]::Write($clearmsg)
-        [Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
-        Write-Host "Updating..." -NoNewline
-
-        # Reset some variables every hour
-        $OneHoursElapsed = $OneHourTimer.Elapsed.TotalHours
-        if ($OneHoursElapsed -ge 1) {
-            $gitNewVersion = Get-gitNewVersion
-            if ($gitNewVersion) {
-                $gitVersion = $gitNewVersion
-            }
-            $highestAtx = $null
-            $OneHourTimer.Restart()
         }
     }
+    
+    if ("Offline" -in $object.synced) {
+        Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Offline!" -ForegroundColor DarkYellow
+        if ($emailEnable -eq "True" -And (isValidEmail($myEmail))) {
+            $Body = "Warning, some nodes are offline!"
+    
+            foreach ($node in $syncNodes.Values) {
+                if (!$node.online) {
+                    $Body = $body + $newLine + $node.name + " " + $node.Host + " " + $node.Smeshing
+                    if (!$node.emailsent) {
+                        $OKtoSend = "True"
+                        $node.emailsent = "True"
+                    }
+                }
+            }
+    
+            if ($OKtoSend) {
+                $From = "001smmonitor@gmail.com"
+                $To = $myEmail
+                $Subject = "Your Spacemesh node is offline"
+    
+                # Define the SMTP server details
+                $SMTPServer = "smtp.gmail.com"
+                $SMTPPort = 587
+                $SMTPUsername = "001smmonitor@gmail.com"
+                $SMTPPassword = "uehd zqix qrbh gejb"
+    
+                # Create a new email object
+                $Email = New-Object System.Net.Mail.MailMessage
+                $Email.From = $From
+                $Email.To.Add($To)
+                $Email.Subject = $Subject
+                $Email.Body = $Body
+                # Uncomment below to send HTML formatted email
+                #$Email.IsBodyHTML = $true
+    
+                # Create an SMTP client object and send the email
+                $SMTPClient = New-Object System.Net.Mail.SmtpClient($SMTPServer, $SMTPPort)
+                $SMTPClient.EnableSsl = $true
+                $SMTPClient.Credentials = New-Object System.Net.NetworkCredential($SMTPUsername, $SMTPPassword)
+    
+                Try {
+                    $SMTPClient.Send($Email)
+                }
+                Catch {
+                    Write-Host "oops! SMTP error, please check your settings." -ForegroundColor DarkRed
+                }
+                Finally {
+                    Write-Host "Email sent..." -ForegroundColor DarkYellow
+                    $OKtoSend = ""
+                }
+            }
+        }
+    }
+    
+    $currentDate = Get-Date -Format HH:mm:ss
+    # Refresh
+    Write-Host `n
+    Write-Host "Press SPACE to refresh" -ForegroundColor DarkGray
+    Write-Host "Last refresh:  " -ForegroundColor Yellow -nonewline; Write-Host "$currentDate" -ForegroundColor Green 
+            
+    # Get original position of cursor
+    $originalPosition = $host.UI.RawUI.CursorPosition
+    $relativeCursorPosition = New-Object System.Management.Automation.Host.Coordinates
+    
+    $clearmsg = " " * ([System.Console]::WindowWidth - 1)
+    if ($utf8 -eq "False") {
+        $frames = @("|", "/", "-", "\") 
+    }
+    else {
+        $frames = @(
+            "⢀⠀", "⡀⠀", "⠄⠀", "⢂⠀", "⡂⠀", "⠅⠀", "⢃⠀", "⡃⠀", "⠍⠀", "⢋⠀",
+            "⡋⠀", "⠍⠁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙", "⠉⠙", "⠉⠩",
+            "⠈⢙", "⠈⡙", "⢈⠩", "⡀⢙", "⠄⡙", "⢂⠩", "⡂⢘", "⠅⡘", "⢃⠨", "⡃⢐",
+            "⠍⡐", "⢋⠠", "⡋⢀", "⠍⡁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙",
+            "⠉⠙", "⠉⠩", "⠈⢙", "⠈⡙", "⠈⠩", "⠀⢙", "⠀⡙", "⠀⠩", "⠀⢘", "⠀⡘",
+            "⠀⠨", "⠀⢐", "⠀⡐", "⠀⠠", "⠀⢀", "⠀⡀"
+        )
+    }
+    $frameCount = $frames.Count
+    if ($stage -eq 4) {
+        $stage = 0
+    }
+    if ($stage -gt 0) {
+        $stage = $stage - 1
+    }
+
+    :waitloop
+    while ($stage -eq 0) {
+        for ($i = 0; $i -lt $frames.Count; $i++) {
+            $tableRefreshTimeElapsed = $tableRefreshTimer.Elapsed.TotalSeconds + 4
+            if ($tableRefreshTimeElapsed -ge $tableRefreshTime) {
+                break waitloop
+            }
+            if ($highestAtxJob.State -eq "Completed") {
+                $stage = 4
+                break waitloop
+            }
+            if ([System.Console]::KeyAvailable) {
+                $key = [System.Console]::ReadKey($true)
+                if ($key.Key -eq "Spacebar") { break waitloop }
+            }
+            $secondsLeft = ($tableRefreshTime - $tableRefreshTimeElapsed) -as [int]
+            $frame = $frames[$i % $frameCount]
+            $bufferHeight = $host.UI.RawUI.BufferSize.Height
+            $relativeCursorPosition.Y = $originalPosition.Y - $host.UI.RawUI.WindowPosition.Y
+            if ($bufferHeight -gt $relativeCursorPosition.Y) {
+                [Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
+                [Console]::Write($clearmsg)
+                [Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
+                Write-Host "Next refresh in: " -nonewline -ForegroundColor Yellow; Write-Host "$($secondsLeft.ToString().PadLeft(3, ' ')) $frame" -nonewline
+            }
+            Start-Sleep -Milliseconds 100
+        }
+    }
+    $relativeCursorPosition.Y = $originalPosition.Y - $host.UI.RawUI.WindowPosition.Y
+    [Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
+    [Console]::Write($clearmsg)
+    [Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
+    Write-Host "Updating..." -NoNewline
+
+    # Reset some variables every hour
+    $OneHoursElapsed = $OneHourTimer.Elapsed.TotalHours
+    if ($OneHoursElapsed -ge 1) {
+        $gitNewVersion = Get-gitNewVersion
+        if ($gitNewVersion) {
+            $gitVersion = $gitNewVersion
+        }
+        $highestAtx = $null
+        $OneHourTimer.Restart()
+    }
+}
 }
     
 function IsValidEmail {
@@ -792,6 +793,10 @@ function applyColumnRules {
         @{ Column = "Version"; Value = "*"; ForegroundColor = "Red"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Version"; Value = $gitVersion; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Version"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
+        @{ Column = "Pname"; Value = $Pname; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
+        @{ Column = "Pname"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
+        @{ Column = "Pname"; Value = $Psate; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
+        @{ Column = "Pstate"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Smeshing"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Smeshing"; Value = "True"; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Smeshing"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = $DefaultBackgroundColor },
