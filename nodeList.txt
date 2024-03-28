@@ -1,6 +1,15 @@
-Public 0,192.168.1.14,9002,9003,0
-Public 1,192.168.1.123,1092,1093,0
-12HPoet,192.168.1.14,9012,9013,0
-Node 2,192.168.1.14,0,0,50002
-Team 24,192.168.1.14,2012,2013,0
-Team 24E,192.168.1.14,1012,1013,0
+# Define seetings as show bellow
+# Name, host, port 1, port 2, port 3, SUs
+# Name   - your node name, can be anything
+# Host   - node IP or localhost
+# Port 1 - default 9092
+# Port 2 - default 9093
+# Port 3 - Port for Post service default 50001
+# SU     - Can be found in postdata-metadata.json define as "NumUnits" 
+
+# <========= Node settings =========>
+
+Public 0, 192.168.1.14, 9002, 9003, 50081, 100
+Public 1, 192.168.1.123, 1092, 1093, 50021, 4
+Team 24, 192.168.1.14, 2012, 2013, 50031, 110
+Team 24E, localhost, 1012, 1013, 50010, 100
