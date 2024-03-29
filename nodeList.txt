@@ -1,6 +1,7 @@
 # Define seetings as show bellow
 # Name, host, port 1, port 2, port 3, SUs
-# Name   - your node name, can be anything
+
+# Name   - your node name, can be anything, for post-service use the name of .key file
 # Host   - node IP or localhost
 # Port 1 - default 9092
 # Port 2 - default 9093
