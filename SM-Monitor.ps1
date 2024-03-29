@@ -410,15 +410,14 @@ function main {
     
         #SM-Monitor Version Check
         if ($gitNewMonitorVersion) {
-            $taglist.Name = ($taglist.Name -split "-")[0] -replace "[^.0-9]"
-            if ([version[]]$taglist.Name -ne $version) {
+            $taglist = ($gitNewMonitorVersion -split "-")[0] -replace "[^.0-9]"
+            if ([version]$version -lt [version]$taglist) {
                 Write-Host "SM-Monitor Version: $($version)" -ForegroundColor Green
-                Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> New SM-Monitor update avaiable! $($taglist.Name)" -ForegroundColor DarkYellow
+                Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> New SM-Monitor update avaiable! $($taglist)" -ForegroundColor DarkYellow
+				Write-Host `n
             }       
         }
                  
-        Write-Host `n
-        $newline = "`r`n"
         #Version Check
         if ($gitVersion) {
             $currentVersion = ($gitVersion -split "-")[0] -replace "[^.0-9]"
@@ -427,13 +426,16 @@ function main {
                 if ([version]$node.version -lt [version]$currentVersion) {
                     Write-Host "Github Go-Spacemesh version: $($gitVersion)" -ForegroundColor Green
                     Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Outdated!" -ForegroundColor DarkYellow
+                    Write-Host `n
                     break
                 }
             }
         }
-                
+        
+        $newline = "`r`n"        
         if ("Offline" -in $object.synced) {
             Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Offline!" -ForegroundColor DarkYellow
+            Write-Host `n
             if ($emailEnable -eq "True" -And (isValidEmail($myEmail))) {
                 $Body = "Warning, some nodes are offline!"
                 
@@ -477,9 +479,11 @@ function main {
                     }
                     Catch {
                         Write-Host "oops! SMTP error, please check your settings." -ForegroundColor DarkRed
+                        Write-Host `n
                     }
                     Finally {
                         Write-Host "Email sent..." -ForegroundColor DarkYellow
+                        Write-Host `n
                         $OKtoSend = ""
                     }
                 }
@@ -488,7 +492,6 @@ function main {
                 
         $currentDate = Get-Date -Format HH:mm:ss
         # Refresh
-        Write-Host `n
         Write-Host "Press SPACE to refresh" -ForegroundColor DarkGray
         Write-Host "Last refresh:  " -ForegroundColor Yellow -nonewline; Write-Host "$currentDate" -ForegroundColor Green 
                         
@@ -691,9 +694,9 @@ function Get-gitNewVersion {
     
 function Get-gitNewMonitorVersion {
     .{
-        $tagList = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/xeliuqa/SM-Monitor/releases/latest"
+        $tagList = Invoke-RestMethod -Method 'GET' -uri "https://api.github.com/repos/xeliuqa/SM-Monitor/releases/latest" 2>$null
         if ($tagList) {
-            $tagList = $tagList.Name
+            $tagList = $tagList.tag_name
         }
     } | Out-Null
     return $tagList
