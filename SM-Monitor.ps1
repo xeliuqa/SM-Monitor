@@ -34,7 +34,7 @@ if (Test-Path $nodeListFile) {
                 host  = if($nodeInfo.Count -ge 2) {$nodeInfo[1].Trim()} else {"localhost"}
                 port  = if($nodeInfo.Count -ge 3 -and [int32]::TryParse($nodeInfo[2].Trim(), [ref]$null)) {[int]$nodeInfo[2].Trim()} else {9092}
                 port2 = if($nodeInfo.Count -ge 4 -and [int32]::TryParse($nodeInfo[3].Trim(), [ref]$null)) {[int]$nodeInfo[3].Trim()} else {9093}
-                port3 = if($nodeInfo.Count -ge 5 -and [int32]::TryParse($nodeInfo[4].Trim(), [ref]$null)) {[int]$nodeInfo[4].Trim()} else {50001}
+                port3 = if($nodeInfo.Count -ge 5 -and [int32]::TryParse($nodeInfo[4].Trim(), [ref]$null)) {[int]$nodeInfo[4].Trim()} else {9094}
                 su    = if($nodeInfo.Count -ge 6 -and [int32]::TryParse($nodeInfo[5].Trim(), [ref]$null)) {[int]$nodeInfo[5].Trim()} else {0}
             }
             $nodeList += $node
