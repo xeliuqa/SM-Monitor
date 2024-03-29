@@ -25,17 +25,21 @@ $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 $nodeListFile = ".\nodeList.txt"
 if (Test-Path $nodeListFile) {
     $nodeListContent = Get-Content $nodeListFile
-    $nodeList = $nodeListContent | ForEach-Object {
-        $nodeInfo = $_ -split ","
-        @{
-            name  = $nodeInfo[0].Trim()
-            host  = $nodeInfo[1].Trim()
-            port  = [int]$nodeInfo[2].Trim()
-            port2 = [int]$nodeInfo[3].Trim()
-            port3 = [int]$nodeInfo[4].Trim()
-            su    = [int]$nodeInfo[5].Trim()
+    $nodeList = @()
+    foreach ($line in $nodeListContent) {
+        if ($line.Trim() -ne "" -and $line[0] -ne "#") {
+            $nodeInfo = $line -split ","
+            $node = @{
+                name  = $nodeInfo[0].Trim()
+                host  = if($nodeInfo.Count -ge 2) {$nodeInfo[1].Trim()} else {"localhost"}
+                port  = if($nodeInfo.Count -ge 3 -and [int32]::TryParse($nodeInfo[2].Trim(), [ref]$null)) {[int]$nodeInfo[2].Trim()} else {9092}
+                port2 = if($nodeInfo.Count -ge 4 -and [int32]::TryParse($nodeInfo[3].Trim(), [ref]$null)) {[int]$nodeInfo[3].Trim()} else {9093}
+                port3 = if($nodeInfo.Count -ge 5 -and [int32]::TryParse($nodeInfo[4].Trim(), [ref]$null)) {[int]$nodeInfo[4].Trim()} else {50001}
+                su    = if($nodeInfo.Count -ge 6 -and [int32]::TryParse($nodeInfo[5].Trim(), [ref]$null)) {[int]$nodeInfo[5].Trim()} else {0}
+            }
+            $nodeList += $node
         }
-    } 2>$null
+    }
 }
 else {
     Write-Host "Error: nodeList.txt not found." -ForegroundColor Red
