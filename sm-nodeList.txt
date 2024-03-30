@@ -8,9 +8,12 @@
 # Port 3 - Port for Post service, default 9094 for the node, 50001 for the pos-service
 # SU     - Can be found in postdata-metadata.json define as "NumUnits" 
 
-#Examples:
-#Node1, localhost, 9092, 9093, 9094, 0 #for the node SU can be zero
-#pos1, localhost, 0, 0, 50001, 4 #for the post-service port1 and port2 should be zeros
+# Examples:
+# Node1, localhost, 9092, 9093, 9094, 0 #for the node SU can be zero
+# pos1, localhost, 0, 0, 50001, 4 #for the post-service port1 and port2 should be zeros
+
+# Instructional video at:
+# https://youtu.be/wJaKc4gZ_tE
 
 # <========= Node settings =========>
 
