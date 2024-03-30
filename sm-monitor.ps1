@@ -15,7 +15,7 @@ With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa == Miguell
 
 Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 	-------------------------------------------------------------------------------------------- #>
-$version = "3.02"
+$version = "4.00"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
     
 # Import Configs
