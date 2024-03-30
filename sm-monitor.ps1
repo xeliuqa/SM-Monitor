@@ -494,7 +494,10 @@ foreach ($node in $syncNodes.Values) {
         }
 		
 		$newline = "`r`n"
-        if ("Offline" -in $object.smeshing) {
+		foreach ($node in $object| Where-Object { (($_.status -match "Offline") -and ($_.port -ne 0)) }) {
+			$nodesOffline = $true
+		}
+        if ($nodesOffline) {
             Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Offline!" -ForegroundColor DarkYellow
 			Write-Host `n
             if ($emailEnable -eq "True" -And (isValidEmail($myEmail))) {
