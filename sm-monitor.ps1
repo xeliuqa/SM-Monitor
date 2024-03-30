@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 3.06
+.VERSION 4.00
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -15,7 +15,7 @@ With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa == Miguell
 
 Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 	-------------------------------------------------------------------------------------------- #>
-$version = "3.06"
+$version = "4.00"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
             
 # Import Configs
@@ -42,7 +42,7 @@ if (Test-Path $nodeListFile) {
     }
 }
 else {
-    Write-Host "Error: nodeList.txt not found." -ForegroundColor Red
+    Write-Host "Error: sm-nodeList.txt not found." -ForegroundColor Red
     exit 1
 }
                 
