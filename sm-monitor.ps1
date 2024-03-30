@@ -19,10 +19,10 @@ $version = "3.06"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
             
 # Import Configs
-. ".\configs.ps1"
+. ".\sm-configs.ps1"
             
 # Import NodeList
-$nodeListFile = ".\nodeList.txt"
+$nodeListFile = ".\sm-nodeList.txt"
 if (Test-Path $nodeListFile) {
     $nodeListContent = Get-Content $nodeListFile
     $nodeList = @()
