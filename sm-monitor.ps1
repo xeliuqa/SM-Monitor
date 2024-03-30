@@ -470,7 +470,7 @@ foreach ($node in $syncNodes.Values) {
         Write-Host `n
 		
         #SM-Monitor Version Check
-        if ($gitNewMonitorVersion) {
+        if (($gitNewMonitorVersion) -and ($stage -ne 2)) {
             $taglist = ($gitNewMonitorVersion -split "-")[0] -replace "[^.0-9]"
             if ([version]$version -lt [version]$taglist) {
                 Write-Host "SM-Monitor Version: $($version)" -ForegroundColor Green
@@ -480,7 +480,7 @@ foreach ($node in $syncNodes.Values) {
         }
     
         #Version Check
-        if ($gitVersion) {
+        if (($gitVersion) -and ($stage -ne 2)) {
             $currentVersion = ($gitVersion -split "-")[0] -replace "[^.0-9]"
             foreach ($node in ($object | Where-Object { (($_.smeshing -notmatch "Offline") -and ($_.smeshing)) })) {
                 $node.version = ($node.version -split "-")[0] -replace "[^.0-9]"
