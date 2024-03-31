@@ -247,15 +247,25 @@ function main {
                 }
             }
                 
-            if (($using:stage -ne 2) -and ($node.port -eq 0) -and ($node.port2 -eq 0) -and ($node.port3 -ne 0)) {
-                $postStatus = ((Invoke-Expression ("curl http://$($node.host):$($node.port3)/status")) | ConvertFrom-Json)  2>$null
-                if ($postStatus) {
-                    $node.status = if ($postStatus.Length -gt 7) { $postStatus.Substring(0, 7) } else { $postStatus }
-                }
-                else {
-                    $node.status = "Offline"
-                }
-            }
+			if (($using:stage -ne 2) -and ($node.port -eq 0) -and ($node.port2 -eq 0) -and ($node.port3 -ne 0)) {
+				$postStatus = Invoke-Expression ("curl http://$($node.host):$($node.port3)/status") 2>$null
+				if ($postStatus) {
+                    if ($postStatus -match '^{.*}$') {
+                        $postStatus = $postStatus | ConvertFrom-Json
+                        if ($postStatus.PSObject.Properties.Name -contains "Proving") {
+                            $provingPosition = $postStatus.Proving.position
+                            $percent = ($provingPosition / ($node.su * 68719476736)) * 100
+                            $node.status = "Proving $($percent)%"
+                        }
+                    }
+                    else {
+                        $node.status = $postStatus.Replace("`"", "")
+                    }
+				}
+				else {
+					$node.status = "Offline"
+				}
+			}
                 
             $syncNodesCopy[$_.name] = $node
         }
