@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 4.00
+.VERSION 4.01
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -15,7 +15,7 @@ With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa == Miguell
 
 Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 	-------------------------------------------------------------------------------------------- #>
-$version = "4.00"
+$version = "4.01"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
     
 # Import Configs
@@ -86,7 +86,7 @@ function main {
         
                 if ($status) {
                     $node.online = "True"
-                    $node.smeshing = "Online"
+                    $node.status = "Online"
                     $node.connectedPeers = $status.connectedPeers
                     $node.syncedLayer = $status.syncedLayer.number
                     $node.topLayer = $status.topLayer.number
@@ -95,7 +95,7 @@ function main {
                     if ($publicKeys.publicKeys.Count -eq 1) {
                         $publicKey = $publicKeys.publicKeys[0]
                     }
-                    if (!$publicKey) {
+                    if (!$publicKeys) { #to be removed in 2 weeks
                         $publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID")) | ConvertFrom-Json).publicKey 2>$null
                     }
                     if ($publicKey) {
@@ -109,7 +109,7 @@ function main {
                 }
                 else {
                     $node.online = ""
-                    $node.smeshing = "Offline"
+                    $node.status = "Offline"
                     $node.synced = $null
                     $node.numUnits = $null
                     $node.connectedPeers = $null
@@ -193,10 +193,10 @@ function main {
                 $smeshing = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.IsSmeshing")) | ConvertFrom-Json)    2>$null
                 if ($null -ne $smeshing.isSmeshing) { 
                     if ($smeshing.isSmeshing -eq "true") {
-                        $node.smeshing = "Smeshing" 
+                        $node.status = "Smeshing" 
                     } 
                     else { 
-                        $node.smeshing = $smeshing.isSmeshing 
+                        $node.status = $smeshing.isSmeshing 
                     }
                 }
                     
@@ -210,7 +210,7 @@ function main {
         
                     if ($state.state -eq "STATE_IN_PROGRESS") {
                         $percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 2)
-                        $node.smeshing = "$($percent)%"
+                        $node.status = "$($percent)%"
                     }
                 }
             }
@@ -250,10 +250,10 @@ function main {
             if (($using:stage -ne 2) -and ($node.port -eq 0) -and ($node.port2 -eq 0) -and ($node.port3 -ne 0)) {
                 $postStatus = ((Invoke-Expression ("curl http://$($node.host):$($node.port3)/status")) | ConvertFrom-Json)  2>$null
                 if ($postStatus) {
-                    $node.smeshing = if ($postStatus.Length -gt 7) { $postStatus.Substring(0, 7) } else { $postStatus }
+                    $node.status = if ($postStatus.Length -gt 7) { $postStatus.Substring(0, 7) } else { $postStatus }
                 }
                 else {
-                    $node.smeshing = "Offline"
+                    $node.status = "Offline"
                 }
             }
                 
@@ -298,7 +298,7 @@ function main {
                 }
             }
                 
-            if (($node.su) -and (!$node.numUnits)) {
+            if (($node.su) -and (!$node.numUnits) -and ($node.port -eq 0)) {
                 $node.numUnits = $node.su
             }
         
@@ -353,7 +353,7 @@ function main {
                 Top      = $node.topLayer
                 Verified = $node.verifiedLayer
                 Version  = $node.version
-                Status   = $node.smeshing
+                Status   = $node.status
                 RWD      = $node.rewards
                 ELG      = $node.atx
                 BAN      = $node.ban
@@ -383,7 +383,7 @@ function main {
         
         if (($showWalletBalance -eq "True") -and ($stage -lt 2)) {
             # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
-            $filterObjects = $object | Where-Object { $_.Synced -match "True" } # -and $_.Host -match "localhost" -and $_.Smeshing -match "True"
+            $filterObjects = $object | Where-Object { $_.Synced -match "True" } # -and $_.Host -match "localhost" -and $_.status -match "True"
             if ($filterObjects) {
                 $privateOnlineNodes = $filterObjects[0]
             }
@@ -423,7 +423,7 @@ function main {
             #if ($checkIfBanned -eq "True") { $props += 'BAN' }
             $_ | Select-Object $props
         } | ColorizeMyObject -ColumnRules $columnRules
-        #$object | Select-Object Name, NodeID, Host, Port, Peers, SU, SizeTiB, Synced, Top, Verified, Version, Smeshing, RWD, ELG, BAN | ColorizeMyObject -ColumnRules $columnRules
+        #$object | Select-Object Name, NodeID, Host, Port, Peers, SU, SizeTiB, Synced, Top, Verified, Version, status, RWD, ELG, BAN | ColorizeMyObject -ColumnRules $columnRules
                 
         $tableRefreshTimer.Restart()
         
@@ -482,7 +482,7 @@ function main {
         #Version Check
         if (($gitVersion) -and ($stage -ne 2)) {
             $currentVersion = ($gitVersion -split "-")[0] -replace "[^.0-9]"
-            foreach ($node in ($object | Where-Object { (($_.synced -notmatch "Offline") -and ($_.synced)) })) {
+            foreach ($node in ($object | Where-Object { (($_.status -notmatch "Offline") -and ($_.status)) })) {
                 $node.version = ($node.version -split "-")[0] -replace "[^.0-9]"
                 if ([version]$node.version -lt [version]$currentVersion) {
                     Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> New go-spacemesh update avaiable! $($gitVersion)" -ForegroundColor DarkYellow
@@ -501,7 +501,7 @@ function main {
                 $Body = "Warning, some nodes are offline!"
                 foreach ($node in $syncNodes.Values) {
                     if (!$node.online) {
-                        $Body = $body + $newLine + $node.name + " " + $node.Host + " " + $node.synced
+                        $Body = $body + $newLine + $node.name + " " + $node.Host + " " + $node.status
                         if (!$node.emailsent) {
                             $OKtoSend = "True"
                             $node.emailsent = "True"
