@@ -7,7 +7,7 @@ https://github.com/PowerShell/PowerShell/releases/tag/v7.4.1
 # SM-Monitor
 Simple monitor for Spacemesh nodes<br>
 
-With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa<br>
+With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa == Miguell<br>
 for the various contributions in making this script awesome
 <br>
 `Click for video`<br>

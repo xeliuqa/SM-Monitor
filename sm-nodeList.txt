@@ -1,0 +1,25 @@
+# Define seetings as show bellow
+# Name, host, port 1, port 2, port 3, SUs
+
+# Name   - your node name, can be anything, for post-service use the name of .key file
+# Host   - node IP or localhost
+# Port 1 - default 9092
+# Port 2 - default 9093
+# Port 3 - Port for Post service, default 9094 for the node, 50001 for the pos-service
+# SU     - Can be found in postdata-metadata.json define as "NumUnits" 
+
+# Examples:
+# Node1, localhost, 9092, 9093, 9094, 0 #for the node SU can be zero
+# pos1, localhost, 0, 0, 50001, 4 #for the post-service port1 and port2 should be zeros
+
+# Instructional video at:
+# https://youtu.be/wJaKc4gZ_tE
+
+# <========= Node settings =========>
+
+Public 0, 192.168.1.14, 9002, 9003, 9004, 100
+Public 1, 192.168.1.123, 1092, 1093, 1094, 4
+Team 24, 192.168.1.14, 2012, 2013, 2014, 110
+Team 12H, localhost, 1012, 1013, 1014, 100
+node3, localhost, 0, 0, 50010, 0
+smeshnode, 192.168.1.125, 0, 0, 50020, 0
