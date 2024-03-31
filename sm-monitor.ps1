@@ -209,7 +209,7 @@ function main {
                     $node.numUnits = $state.opts.numUnits
         
                     if ($state.state -eq "STATE_IN_PROGRESS") {
-                        $percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 2)
+                        $percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 0)
                         $node.status = "$($percent)%"
                     }
                 }
@@ -254,7 +254,7 @@ function main {
                         $postStatus = $postStatus | ConvertFrom-Json
                         if ($postStatus.PSObject.Properties.Name -contains "Proving") {
                             $provingPosition = $postStatus.Proving.position
-                            $percent = [math]::round((($provingPosition / ($node.su * 68719476736)) * 100), 2)
+                            $percent = [math]::round((($provingPosition / ($node.su * 68719476736)) * 100), 0)
                             $node.status = "Proving $($percent)%"
                         }
                     }
