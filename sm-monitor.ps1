@@ -304,7 +304,7 @@ function main {
                 $layer = $layers[$name].layers
                 if ($key -eq $node.publicKey) {
                     $node.rewards = $layers[$key].count
-                    $node.layers = $layers[$key].layer
+                    $node.layers = $layers[$key]
                 }
             }
                 
@@ -333,7 +333,7 @@ function main {
                     $rewardsTrackApp += $nodeData
                 }
                 elseif ($fileFormat -eq 3) {
-                    $nodelayers = $node.layers
+                    $nodelayers = $node.layers | ForEach-Object { $_.layer }
                     $nodelayers = $nodelayers | Sort-Object
                     $layersString = $nodelayers -join ','
                     $nodeData = [ordered]@{
