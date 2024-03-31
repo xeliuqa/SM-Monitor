@@ -254,7 +254,7 @@ function main {
                         $postStatus = $postStatus | ConvertFrom-Json
                         if ($postStatus.PSObject.Properties.Name -contains "Proving") {
                             $provingPosition = $postStatus.Proving.position
-                            $percent = ($provingPosition / ($node.su * 68719476736)) * 100
+                            $percent = [math]::round((($provingPosition / ($node.su * 68719476736)) * 100), 2)
                             $node.status = "Proving $($percent)%"
                         }
                     }
