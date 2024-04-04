@@ -478,7 +478,7 @@ function main {
             }
         }
         Write-Host "--------------------------------------------------------------------------------" -ForegroundColor Yellow
-        Write-Host "ELG - The number of Epoch when the node will be eligible for rewards. " -ForegroundColor DarkGray
+        #Write-Host "ELG - The number of Epoch when the node will be eligible for rewards. " -ForegroundColor DarkGray
         Write-Host `n
             
         #SM-Monitor Version Check
@@ -502,10 +502,12 @@ function main {
         }
             
         $newline = "`r`n"
-        foreach ($node in $object | Where-Object { (($_.status -match "Offline") -and ($_.port -ne 0)) }) {
+        $nodesOffline = $null
+        foreach ($node in $object| Where-Object { (($_.status -match "Offline") -and ($_.port -ne 0) -and ($stage -ne 2)) }) {
             $nodesOffline = $true
+            break
         }
-        if (($nodesOffline) -and ($stage -ne 2)) {
+        if ($nodesOffline) {
             Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Offline!" -ForegroundColor DarkYellow
             if ($emailEnable -eq "True" -And (isValidEmail($myEmail))) {
                 $Body = "Warning, some nodes are offline!"
@@ -553,6 +555,7 @@ function main {
                     }
                     Finally {
                         Write-Host "Email sent..." -ForegroundColor DarkYellow
+                        Write-Host `n
                         $OKtoSend = ""
                     }
                 }
@@ -561,7 +564,6 @@ function main {
         
         $currentDate = Get-Date -Format HH:mm:ss
         # Refresh
-        Write-Host `n
         Write-Host "Press SPACE to refresh" -ForegroundColor DarkGray
         Write-Host "Last refresh:  " -ForegroundColor Yellow -nonewline; Write-Host "$currentDate" -ForegroundColor Green 
                 
