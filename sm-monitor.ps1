@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 4.02
+.VERSION 4.03
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -15,7 +15,7 @@ With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa == Miguell
 
 Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 	-------------------------------------------------------------------------------------------- #>
-$version = "4.02"
+$version = "4.03"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 function main {
@@ -70,6 +70,7 @@ function main {
     
     $gitVersion = Get-gitNewVersion
 	$gitNewMonitorVersion = Get-gitNewMonitorVersion
+    $malfeasanceStream = $null
     
     if (Test-Path ".\RewardsTrackApp.tmp") {
         Clear-Content ".\RewardsTrackApp.tmp"
@@ -100,16 +101,6 @@ function main {
                     $node.syncedLayer = $status.syncedLayer.number
                     $node.topLayer = $status.topLayer.number
                     $node.verifiedLayer = $status.verifiedLayer.number
-                    $publicKeys = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherIDs")) | ConvertFrom-Json) 2>$null
-					if ($publicKeys.publicKeys.Count -eq 1) {
-					$publicKey = $publicKeys.publicKeys[0]
-					}
-                    if (!$publicKeys) {
-                        $publicKey = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherID")) | ConvertFrom-Json).publicKey 2>$null
-                    }
-                    if ($publicKey) {
-                        $node.publicKey = $publicKey
-                    }
                     if ($status.isSynced) {
                         $node.synced = "True"
                         $node.emailsent = ""
@@ -181,43 +172,41 @@ function main {
                     if ($eligibility.epoch -eq $node.epoch.number) {
 						$smesher = $eligibility.smesher
                         $layers[$smesher] = $eligibility.eligibilities
-                    }
-					if ($layers) {
 						$node.layers = $layers
 					}
 				}
-                 #foreach ($aPublished in $atxPublished) {
-                   #  if ($aPublished.epoch -eq $node.epoch.number) {
-                         
-                     #}
-                 #}
-                $atxTarget = $atxPublished.target
-                $poetWait = $poetWaitProof.target
-                if ($atxTarget) {
-                    $node.atx = $atxTarget
-                }
-                elseif ($poetWait ) {
-                    #-and ($null -eq $layers)
-                    $node.atx = $poetWait
-                }
-                else {
-                    $node.atx = " -"
-                }
-
+                $activations = @{}
+                foreach ($aPublished in $atxPublished) {
+                   if ($aPublished.current -eq $node.epoch.number) {
+                         $smesher = $aPublished.smesher
+                         $activations[$smesher] = $aPublished.target
+                         $node.activations = $activations
+                     }
+                 }
+                 $waitProof = @{}
+                 foreach ($pWaitProof in $poetWaitProof) {
+                    $smesher = $pWaitProof.smesher
+                    $waitProof[$smesher] = $pWaitProof.target
+                    $node.waitProof = $waitProof
+                 }
+            }
+            
+            if ($node.online -and ($using:stage -ne 1) -and ($using:stage -ne 4) -and ($node.port -ne 0) -and ($node.port2 -ne 0)) {
                 $smeshing = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.IsSmeshing")) | ConvertFrom-Json)    2>$null
-                if ($null -ne $smeshing.isSmeshing) { 
+                if ($null -ne $smeshing.isSmeshing) {
 					if ($smeshing.isSmeshing -eq "true") {
 						$node.status = "Smeshing" } 
 					else { 
 						$node.status = $smeshing.isSmeshing 
 					}
 				}
-                
-            }
-            
-            if ($node.online -and ($using:stage -ne 1) -and ($using:stage -ne 4) -and ($node.port -ne 0) -and ($node.port2 -ne 0)) {
+
+                $publicKeys = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherIDs")) | ConvertFrom-Json) 2>$null
+                    if (($publicKeys.publicKeys.Count -eq 1) -and ($smeshing.isSmeshing -eq "true")) {
+                        $node.publicKey = $publicKeys.publicKeys[0]
+					}
+
                 $state = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus")) | ConvertFrom-Json).status 2>$null
-    
                 if ($state) {
                     $node.numUnits = $state.opts.numUnits
     
@@ -226,23 +215,6 @@ function main {
                         $node.status = "$($percent)%"
                     }
                 }
-            }
-
-            if (($using:checkIfBanned -eq "True") -and ($using:stage -ne 2) -and ($using:stage -ne 4) -and ($node.port -ne 0) -and ($node.port2 -ne 0)) {
-                if ($node.publicKey) {
-                    $publicKeylow = [System.BitConverter]::ToString([System.Convert]::FromBase64String($node.publicKey)).Replace("-", "").ToLower()
-                    $response = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.MeshService.MalfeasanceStream")) 2>$null
-                    if ($response -match "MALFEASANCE_HARE") {
-                        if ($response -match $publicKeylow) {
-                            if ($using:utf8 -eq "False") { $node.ban = " X" } else { $node.ban = "`u{1F480}" } #"yes"
-                        }
-                        else {
-                            if ($using:utf8 -eq "False") { $node.ban = " OK" } else { $node.ban = "`u{1f197}" } #"no"
-                        }
-                    }
-                    else { $node.ban = "" }
-                }
-                else { $node.ban = " -" }
             }
 			
 			if (($node.port -ne 0) -and ($node.port2 -ne 0) -and ($node.port3 -ne 0)) {
@@ -279,28 +251,41 @@ function main {
 					$node.status = "Offline"
 				}
 			}
-			
+
             $syncNodesCopy[$_.name] = $node
         }
 		
-$postServices = @{}
-$layers = @{}
-foreach ($node in $syncNodes.Values) {
-	if (($node.port -ne 0) -and ($node.port2 -ne 0)) {
-        foreach ($name in $node.post.Keys) {
-			if ($node.post[$name]){
-            $postServices[$name] = $node.post[$name]
-			}
+        $postServices = @{}
+        $layers = @{}
+        $activations = @{}
+        $waitProofs =@{}
+        foreach ($node in $syncNodes.Values) {
+            if (($node.port -ne 0) -and ($node.port2 -ne 0)) {
+                foreach ($name in $node.post.Keys) {
+                    if ($node.post[$name]){
+                        $postServices[$name] = $node.post[$name]
+                    }
+                }
+                if ($node.layers) {
+                    $layers +=  $node.layers
+                    $node.layers = $null
+                }
+                if ($node.activations){
+                    $activations +=$node.activations
+                    $node.activations = $null
+                }
+                if ($node.waitProof) {
+                    $waitProofs +=$node.waitProof
+                    $node.waitProof = $null
+                }
+            }
         }
-		if ($node.layers) {
-			$layers +=  $node.layers
-			$node.layers = $null
-		}
-	}
-}
-
-        $nodeList | ForEach-Object {
-            $node = $syncNodes[$_.name]
+        
+        foreach ($node in $syncNodes.Values) {
+            $node.atx = $null
+            $node.ban = $null
+            $node.rewards = $null
+            $node.layers = $null
 
             if ($epoch -lt $node.epoch.number) {
                 $epoch = $node.epoch.number
@@ -310,18 +295,35 @@ foreach ($node in $syncNodes.Values) {
 				$post = $postServices[$name]
 				if ($name -eq $node.name){
 					$node.publicKey = $post.id
+                    
 				}
 			}
 
 			foreach ($key in $layers.Keys) {
-				$layer = $layers[$name].layers
 				if ($key -eq $node.publicKey){
 					$node.rewards = $layers[$key].count
 					$node.layers = $layers[$key]
 				}
 			}
-			
-			if (($node.su) -and (!$node.numUnits) -and ($node.port -eq 0)) {
+            
+            foreach ($key in $activations.Keys) {
+				if ($key -eq $node.publicKey){
+					$node.atx = [string]$activations[$key]
+				}
+			}
+            
+            foreach ($key in $waitProofs.Keys) {
+				if ($key -eq $node.publicKey){
+                    if ($node.atx) {
+                        $node.atx = $node.atx + ', ' + $waitProofs[$key]
+                    }
+                    else {
+                        $node.atx = $waitProofs[$key]
+                    }
+				}
+			}
+            
+            if (($node.su) -and (!$node.numUnits) -and ($node.port -eq 0)) {
 				$node.numUnits = $node.su
 			}
     
@@ -330,6 +332,16 @@ foreach ($node in $syncNodes.Values) {
                 # Extract last 5 digits from SmesherID
                 $node.shortKey = $node.fullkey.substring($node.fullkey.length - 5, 5)
             }
+            
+            if (($checkIfBanned -eq "True") -and ($malfeasanceStream -match "MALFEASANCE_HARE") -and $node.fullkey) {
+                if ($malfeasanceStream -match $node.fullkey) {
+                    if ($utf8 -eq "False") { $node.ban = " X" } else { $node.ban = "`u{1F480}" } #"yes"
+                }
+                else {
+                    if ($utf8 -eq "False") { $node.ban = " OK" } else { $node.ban = "`u{1f197}" } #"no"
+                }
+            }
+            else { $node.ban = "" }
     
             $totalLayers = $totalLayers + $node.rewards
             if ($node.layers) {
@@ -360,6 +372,27 @@ foreach ($node in $syncNodes.Values) {
             if ($node.topLayer -gt $topLayer) {
                 $topLayer = $node.topLayer
             }
+        }
+        
+        foreach ($node in $syncNodes.Values) {
+            if (($stage -ne 2) -and ($node.port -eq 0) -and ($node.port2 -eq 0) -and ($node.port3 -ne 0)) {
+                if ($node.status -eq "Idle") {
+                    $found = $false
+                    foreach ($name in $postServices.Keys) {
+                       $post = $postServices[$name]
+                        if ($name -eq $node.name) {
+                            $found = $true
+                        }
+                    }
+                    if (!$found) {
+                        $node.status = "Idle!"
+                    }
+                }
+            }
+        }
+        
+        $nodeList | ForEach-Object {
+            $node = $syncNodes[$_.name]
     
             $o = [PSCustomObject]@{
                 Name     = $node.name
@@ -403,38 +436,41 @@ foreach ($node in $syncNodes.Values) {
                 $rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "SM-Layers.json"
             }
         }
-    
-        if (($showWalletBalance -eq "True") -and ($stage -lt 2)) {
+        
+        if (($stage -ne 4) -and ($stage -ne 1)) {
             # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
             $filterObjects = $object | Where-Object { $_.Synced -match "True"} # -and $_.Host -match "localhost" -and $_.status -match "True"
             if ($filterObjects) {
                 $privateOnlineNodes = $filterObjects[0]
+                if (($checkIfBanned -eq "True") -and !$malfeasanceStream) {
+                    $malfeasanceStream = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($privateOnlineNodes.Host):$($privateOnlineNodes.Port) spacemesh.v1.MeshService.MalfeasanceStream")) 2>$null
+                } 
             }
             else {
                 $privateOnlineNodes = $null
             }
-    
-            # If private nodes are found, determine the PS version and execute corresponding grpcurl if statement. Else skip.
-            if ($privateOnlineNodes.name.count -gt 0) {
-                $coinbase = (Invoke-Expression "$grpcurl --plaintext -max-time 10 $($privateOnlineNodes.Host):$($privateOnlineNodes.Port2) spacemesh.v1.SmesherService.Coinbase" | ConvertFrom-Json).accountId.address
-                $jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$coinbase`" }, `"account_data_flags`": 4 } }"
-                $balance = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' $($privateOnlineNodes.Host):$($privateOnlineNodes.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value
-                $balanceSMH = [string]([math]::Round($balance / 1000000000, 3)) + " SMH"
-                $coinbase = "($coinbase)"
-                if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
-                if ($coinbaseAddressVisibility -eq "partial") {
-                    $coinbase = '(' + $($coinbase).Substring($($coinbase).IndexOf(")") - 4, 4) + ')'
-                }
-                elseif ($coinbaseAddressVisibility -eq "hidden") {
-                    $coinbase = "(----)"
-                }
-            }
-            else {
-                $coinbase = ""
-                $balanceSMH = "Unable to retrieve the balance at the moment"
-            }
         }
     
+        # If private nodes are found, determine the PS version and execute corresponding grpcurl if statement. Else skip.
+        if (($showWalletBalance -eq "True") -and $privateOnlineNodes.name.count -gt 0) {
+            $coinbase = (Invoke-Expression "$grpcurl --plaintext -max-time 10 $($privateOnlineNodes.Host):$($privateOnlineNodes.Port2) spacemesh.v1.SmesherService.Coinbase" | ConvertFrom-Json).accountId.address
+            $jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$coinbase`" }, `"account_data_flags`": 4 } }"
+            $balance = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' $($privateOnlineNodes.Host):$($privateOnlineNodes.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value
+            $balanceSMH = [string]([math]::Round($balance / 1000000000, 3)) + " SMH"
+            $coinbase = "($coinbase)"
+            if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
+            if ($coinbaseAddressVisibility -eq "partial") {
+                $coinbase = '(' + $($coinbase).Substring($($coinbase).IndexOf(")") - 4, 4) + ')'
+            }
+            elseif ($coinbaseAddressVisibility -eq "hidden") {
+                $coinbase = "(----)"
+            }
+        }
+        else {
+            $coinbase = ""
+            $balanceSMH = "Unable to retrieve the balance at the moment"
+        }
+        
         $columnRules = applyColumnRules
     
         Clear-Host
@@ -442,8 +478,8 @@ foreach ($node in $syncNodes.Values) {
             $props = 'Name', 'Host'
             if ($ShowPorts -eq "True") { $props += 'Port', 'Port2','Port3' }
             $props += 'Peers', 'Synced', 'Layer', 'Verified', 'Version', 'Status', 'NodeID', 'SU', 'SizeTiB', 'RWD'
-            #if ($showELG -eq "True") { $props += 'ELG' }
-            #if ($checkIfBanned -eq "True") { $props += 'BAN' }
+            if ($showELG -eq "True") { $props += 'ELG' }
+            if ($checkIfBanned -eq "True") { $props += 'BAN' }
             $_ | Select-Object $props
         } | ColorizeMyObject -ColumnRules $columnRules
         #$object | Select-Object Name, NodeID, Host, Port, Peers, SU, SizeTiB, Synced, Top, Verified, Version, status, RWD, ELG, BAN | ColorizeMyObject -ColumnRules $columnRules
@@ -591,7 +627,7 @@ foreach ($node in $syncNodes.Values) {
         $originalPosition = $host.UI.RawUI.CursorPosition
         $relativeCursorPosition = New-Object System.Management.Automation.Host.Coordinates
     
-        $clearmsg = " " * ([System.Console]::WindowWidth - 1)
+        $clearmsg = " " * ([System.Console]::WindowWidth - 18)
         if ($utf8 -eq "False") {
             $frames = @("|", "/", "-", "\") 
         }
@@ -612,7 +648,8 @@ foreach ($node in $syncNodes.Values) {
         if ($stage -gt 0) {
             $stage = $stage - 1
         }
-
+        
+        Write-Host "Next refresh in: " -nonewline -ForegroundColor Yellow;
         :waitloop
         while ($stage -eq 0) {
             for ($i = 0; $i -lt $frames.Count; $i++) {
@@ -637,12 +674,12 @@ foreach ($node in $syncNodes.Values) {
                 $bufferHeight = $host.UI.RawUI.BufferSize.Height
                 $relativeCursorPosition.Y = $originalPosition.Y - $host.UI.RawUI.WindowPosition.Y
                 if ($bufferHeight -gt $relativeCursorPosition.Y) {
-                    [Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
+                    [Console]::SetCursorPosition(17, $relativeCursorPosition.Y)
                     [Console]::Write($clearmsg)
-                    [Console]::SetCursorPosition(0, $relativeCursorPosition.Y)
-                    Write-Host "Next refresh in: " -nonewline -ForegroundColor Yellow; Write-Host "$($secondsLeft.ToString().PadLeft(3, ' ')) $frame" -nonewline
+                    [Console]::SetCursorPosition(17, $relativeCursorPosition.Y)
+                    Write-Host "$($secondsLeft.ToString().PadLeft(3, ' ')) $frame" -nonewline
                 }
-                Start-Sleep -Milliseconds 100
+                Start-Sleep -Milliseconds 120
             }
         }
         $relativeCursorPosition.Y = $originalPosition.Y - $host.UI.RawUI.WindowPosition.Y
@@ -660,6 +697,7 @@ foreach ($node in $syncNodes.Values) {
             }
 			$gitNewMonitorVersion = Get-gitNewMonitorVersion
             $highestAtx = $null
+            $malfeasanceStream = $null
             $OneHourTimer.Restart()
         }
     }
@@ -880,7 +918,7 @@ function applyColumnRules {
         @{ Column = "Status"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "Online"; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "Idle"; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
-        @{ Column = "Status"; Value = "Idle*"; ForegroundColor = "Red"; BackgroundColor = $DefaultBackgroundColor },
+        @{ Column = "Status"; Value = "Idle!"; ForegroundColor = "Red"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "Proving"; ForegroundColor = "Yellow"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "Smeshing"; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = $DefaultBackgroundColor },
