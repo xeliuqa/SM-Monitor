@@ -40,11 +40,11 @@ function main {
                 $nodeInfo = $line -split ","
                 $node = @{
                     name  = $nodeInfo[0].Trim()
-                    host  = if ($nodeInfo.Count -ge 2) {$nodeInfo[1].Trim()} else {"localhost"}
-                    port  = if ($nodeInfo.Count -ge 3 -and [int32]::TryParse($nodeInfo[2].Trim(), [ref]$null)) {[int]$nodeInfo[2].Trim()} else {9092}
-                    port2 = if ($nodeInfo.Count -ge 4 -and [int32]::TryParse($nodeInfo[3].Trim(), [ref]$null)) {[int]$nodeInfo[3].Trim()} else {9093}
-                    port3 = if ($nodeInfo.Count -ge 5 -and [int32]::TryParse($nodeInfo[4].Trim(), [ref]$null)) {[int]$nodeInfo[4].Trim()} else {9094}
-                    su    = if ($nodeInfo.Count -ge 6 -and [int32]::TryParse($nodeInfo[5].Trim(), [ref]$null)) {[int]$nodeInfo[5].Trim()} else {0}
+                    host  = if ($nodeInfo.Count -ge 2) { $nodeInfo[1].Trim() } else { "localhost" }
+                    port  = if ($nodeInfo.Count -ge 3 -and [int32]::TryParse($nodeInfo[2].Trim(), [ref]$null)) { [int]$nodeInfo[2].Trim() } else { 9092 }
+                    port2 = if ($nodeInfo.Count -ge 4 -and [int32]::TryParse($nodeInfo[3].Trim(), [ref]$null)) { [int]$nodeInfo[3].Trim() } else { 9093 }
+                    port3 = if ($nodeInfo.Count -ge 5 -and [int32]::TryParse($nodeInfo[4].Trim(), [ref]$null)) { [int]$nodeInfo[4].Trim() } else { 9094 }
+                    su    = if ($nodeInfo.Count -ge 6 -and [int32]::TryParse($nodeInfo[5].Trim(), [ref]$null)) { [int]$nodeInfo[5].Trim() } else { 0 }
                 }
                 $nodeList += $node
             }
@@ -69,7 +69,7 @@ function main {
     printSMMonitorLogo
     
     $gitVersion = Get-gitNewVersion
-	$gitNewMonitorVersion = Get-gitNewMonitorVersion
+    $gitNewMonitorVersion = Get-gitNewMonitorVersion
     $malfeasanceStream = $null
     
     if (Test-Path ".\RewardsTrackApp.tmp") {
@@ -96,7 +96,7 @@ function main {
     
                 if ($status) {
                     $node.online = "True"
-					$node.status = "Online"
+                    $node.status = "Online"
                     $node.connectedPeers = $status.connectedPeers
                     $node.syncedLayer = $status.syncedLayer.number
                     $node.topLayer = $status.topLayer.number
@@ -135,76 +135,77 @@ function main {
                 }    
 
                 $eventstream = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.AdminService.EventsStream")) 2>$null
-				if ($eventstream){
-					$eventstream = $eventstream -split "`n" | Where-Object { $_ }
-					$eligibilities = @()
-					$atxPublished = @()
-					$jsonObject = @()
-					$poetWaitProof = @()
-					foreach ($line in $eventstream) {
-						if (($line -notmatch "^\s+") -and ($line -match "{")) {
-							$jsonObject = @()
-						}
-						$jsonObject += $line
-						if (($line -notmatch "^\s+") -and ($line -match "}")) {
-							Try {
-								$json = $jsonObject -join "`n" | ConvertFrom-Json
-								if ($json.eligibilities) {
-									$eligibilities += $json.eligibilities
-								}
-								if ($json.atxPublished) {
-									$atxPublished += $json.atxPublished
-								}
-								if ($json.poetWaitProof) {
-									$poetWaitProof += $json.poetWaitProof
-								}
-							}
-							Catch {
-								# Ignore the error and continue
-								continue
-							}
-						}
-					}
-				}
+                if ($eventstream) {
+                    $eventstream = $eventstream -split "`n" | Where-Object { $_ }
+                    $eligibilities = @()
+                    $atxPublished = @()
+                    $jsonObject = @()
+                    $poetWaitProof = @()
+                    foreach ($line in $eventstream) {
+                        if (($line -notmatch "^\s+") -and ($line -match "{")) {
+                            $jsonObject = @()
+                        }
+                        $jsonObject += $line
+                        if (($line -notmatch "^\s+") -and ($line -match "}")) {
+                            Try {
+                                $json = $jsonObject -join "`n" | ConvertFrom-Json
+                                if ($json.eligibilities) {
+                                    $eligibilities += $json.eligibilities
+                                }
+                                if ($json.atxPublished) {
+                                    $atxPublished += $json.atxPublished
+                                }
+                                if ($json.poetWaitProof) {
+                                    $poetWaitProof += $json.poetWaitProof
+                                }
+                            }
+                            Catch {
+                                # Ignore the error and continue
+                                continue
+                            }
+                        }
+                    }
+                }
 
                 $layers = @{}
                 foreach ($eligibility in $eligibilities) {
                     if ($eligibility.epoch -eq $node.epoch.number) {
-						$smesher = $eligibility.smesher
+                        $smesher = $eligibility.smesher
                         $layers[$smesher] = $eligibility.eligibilities
-						$node.layers = $layers
-					}
-				}
+                        $node.layers = $layers
+                    }
+                }
                 $activations = @{}
                 foreach ($aPublished in $atxPublished) {
-                   if ($aPublished.current -eq $node.epoch.number) {
-                         $smesher = $aPublished.smesher
-                         $activations[$smesher] = $aPublished.target
-                         $node.activations = $activations
-                     }
-                 }
-                 $waitProof = @{}
-                 foreach ($pWaitProof in $poetWaitProof) {
+                    if ($aPublished.current -eq $node.epoch.number) {
+                        $smesher = $aPublished.smesher
+                        $activations[$smesher] = $aPublished.target
+                        $node.activations = $activations
+                    }
+                }
+                $waitProof = @{}
+                foreach ($pWaitProof in $poetWaitProof) {
                     $smesher = $pWaitProof.smesher
                     $waitProof[$smesher] = $pWaitProof.target
                     $node.waitProof = $waitProof
-                 }
+                }
             }
             
             if ($node.online -and ($using:stage -ne 1) -and ($using:stage -ne 4) -and ($node.port -ne 0) -and ($node.port2 -ne 0)) {
                 $smeshing = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.IsSmeshing")) | ConvertFrom-Json)    2>$null
                 if ($null -ne $smeshing.isSmeshing) {
-					if ($smeshing.isSmeshing -eq "true") {
-						$node.status = "Smeshing" } 
-					else { 
-						$node.status = $smeshing.isSmeshing 
-					}
-				}
+                    if ($smeshing.isSmeshing -eq "true") {
+                        $node.status = "Smeshing" 
+                    } 
+                    else { 
+                        $node.status = $smeshing.isSmeshing 
+                    }
+                }
 
                 $publicKeys = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherIDs")) | ConvertFrom-Json) 2>$null
-                    if (($publicKeys.publicKeys.Count -eq 1) -and ($smeshing.isSmeshing -eq "true")) {
-                        $node.publicKey = $publicKeys.publicKeys[0]
-					}
+                if (($publicKeys.publicKeys.Count -eq 1) -and ($smeshing.isSmeshing -eq "true")) {
+                    $node.publicKey = $publicKeys.publicKeys[0]
+                }
 
                 $state = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus")) | ConvertFrom-Json).status 2>$null
                 if ($state) {
@@ -217,24 +218,24 @@ function main {
                 }
             }
 			
-			if (($node.port -ne 0) -and ($node.port2 -ne 0) -and ($node.port3 -ne 0)) {
-				$node.post = @{}
+            if (($node.port -ne 0) -and ($node.port2 -ne 0) -and ($node.port3 -ne 0)) {
+                $node.post = @{}
                 $states = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port3) spacemesh.v1.PostInfoService.PostStates")) | ConvertFrom-Json).states 2>$null
-				if ($states) {
-					foreach ($post in $states){
-						$postName = ($post.name).Replace(".key", "")
-						$node.post[$postName] = @{
-						"state" = $post.state
-						"id" = $post.id
-						"node" = $node.name
-						}
-					}
-				}
-			}
+                if ($states) {
+                    foreach ($post in $states) {
+                        $postName = ($post.name).Replace(".key", "")
+                        $node.post[$postName] = @{
+                            "state" = $post.state
+                            "id"    = $post.id
+                            "node"  = $node.name
+                        }
+                    }
+                }
+            }
 			
-			if (($using:stage -ne 2) -and ($node.port -eq 0) -and ($node.port2 -eq 0) -and ($node.port3 -ne 0)) {
-				$postStatus = Invoke-Expression ("curl http://$($node.host):$($node.port3)/status") 2>$null
-				if ($postStatus) {
+            if (($using:stage -ne 2) -and ($node.port -eq 0) -and ($node.port2 -eq 0) -and ($node.port3 -ne 0)) {
+                $postStatus = Invoke-Expression ("curl http://$($node.host):$($node.port3)/status") 2>$null
+                if ($postStatus) {
                     if ($postStatus -match '^{.*}$') {
                         $postStatus = $postStatus | ConvertFrom-Json
                         if ($postStatus.PSObject.Properties.Name -contains "Proving") {
@@ -246,11 +247,11 @@ function main {
                     else {
                         $node.status = $postStatus.Replace("`"", "")
                     }
-				}
-				else {
-					$node.status = "Offline"
-				}
-			}
+                }
+                else {
+                    $node.status = "Offline"
+                }
+            }
 
             $syncNodesCopy[$_.name] = $node
         }
@@ -258,24 +259,24 @@ function main {
         $postServices = @{}
         $layers = @{}
         $activations = @{}
-        $waitProofs =@{}
+        $waitProofs = @{}
         foreach ($node in $syncNodes.Values) {
             if (($node.port -ne 0) -and ($node.port2 -ne 0)) {
                 foreach ($name in $node.post.Keys) {
-                    if ($node.post[$name]){
+                    if ($node.post[$name]) {
                         $postServices[$name] = $node.post[$name]
                     }
                 }
                 if ($node.layers) {
-                    $layers +=  $node.layers
+                    $layers += $node.layers
                     $node.layers = $null
                 }
-                if ($node.activations){
-                    $activations +=$node.activations
+                if ($node.activations) {
+                    $activations += $node.activations
                     $node.activations = $null
                 }
                 if ($node.waitProof) {
-                    $waitProofs +=$node.waitProof
+                    $waitProofs += $node.waitProof
                     $node.waitProof = $null
                 }
             }
@@ -291,41 +292,41 @@ function main {
                 $epoch = $node.epoch.number
             }
 			
-			foreach ($name in $postServices.Keys) {
-				$post = $postServices[$name]
-				if ($name -eq $node.name){
-					$node.publicKey = $post.id
+            foreach ($name in $postServices.Keys) {
+                $post = $postServices[$name]
+                if ($name -eq $node.name) {
+                    $node.publicKey = $post.id
                     
-				}
-			}
+                }
+            }
 
-			foreach ($key in $layers.Keys) {
-				if ($key -eq $node.publicKey){
-					$node.rewards = $layers[$key].count
-					$node.layers = $layers[$key]
-				}
-			}
+            foreach ($key in $layers.Keys) {
+                if ($key -eq $node.publicKey) {
+                    $node.rewards = $layers[$key].count
+                    $node.layers = $layers[$key]
+                }
+            }
             
             foreach ($key in $activations.Keys) {
-				if ($key -eq $node.publicKey){
-					$node.atx = [string]$activations[$key]
-				}
-			}
+                if ($key -eq $node.publicKey) {
+                    $node.atx = [string]$activations[$key]
+                }
+            }
             
             foreach ($key in $waitProofs.Keys) {
-				if ($key -eq $node.publicKey){
+                if ($key -eq $node.publicKey) {
                     if ($node.atx) {
                         $node.atx = $node.atx + ', ' + $waitProofs[$key]
                     }
                     else {
                         $node.atx = $waitProofs[$key]
                     }
-				}
-			}
+                }
+            }
             
             if (($node.su) -and (!$node.numUnits) -and ($node.port -eq 0)) {
-				$node.numUnits = $node.su
-			}
+                $node.numUnits = $node.su
+            }
     
             if ($node.publicKey -and !$node.shortKey) {
                 $node.fullkey = (B64_to_Hex -id2convert $node.publicKey)
@@ -379,7 +380,7 @@ function main {
                 if ($node.status -eq "Idle") {
                     $found = $false
                     foreach ($name in $postServices.Keys) {
-                       $post = $postServices[$name]
+                        $post = $postServices[$name]
                         if ($name -eq $node.name) {
                             $found = $true
                         }
@@ -409,7 +410,7 @@ function main {
                 Top      = $node.topLayer
                 Verified = $node.verifiedLayer
                 Version  = $node.version
-                Status = $node.status
+                Status   = $node.status
                 RWD      = $node.rewards
                 ELG      = $node.atx
                 BAN      = $node.ban
@@ -439,7 +440,7 @@ function main {
         
         if (($stage -ne 4) -and ($stage -ne 1)) {
             # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
-            $filterObjects = $object | Where-Object { $_.Synced -match "True"} # -and $_.Host -match "localhost" -and $_.status -match "True"
+            $filterObjects = $object | Where-Object { $_.Synced -match "True" } # -and $_.Host -match "localhost" -and $_.status -match "True"
             if ($filterObjects) {
                 $privateOnlineNodes = $filterObjects[0]
                 if (($checkIfBanned -eq "True") -and !$malfeasanceStream) {
@@ -476,7 +477,7 @@ function main {
         Clear-Host
         $object | ForEach-Object {
             $props = 'Name', 'Host'
-            if ($ShowPorts -eq "True") { $props += 'Port', 'Port2','Port3' }
+            if ($ShowPorts -eq "True") { $props += 'Port', 'Port2', 'Port3' }
             $props += 'Peers', 'Synced', 'Layer', 'Verified', 'Version', 'Status', 'NodeID', 'SU', 'SizeTiB', 'RWD'
             if ($showELG -eq "True") { $props += 'ELG' }
             if ($checkIfBanned -eq "True") { $props += 'BAN' }
@@ -535,7 +536,7 @@ function main {
             $taglist = ($gitNewMonitorVersion -split "-")[0] -replace "[^.0-9]"
             if ([version]$version -lt [version]$taglist) {
                 Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> New sm-monitor update avaiable! $($taglist)" -ForegroundColor DarkYellow
-				Write-Host `n
+                Write-Host `n
             }       
         }
     
@@ -547,21 +548,21 @@ function main {
                 if ([version]$node.version -lt [version]$currentVersion) {
                     Write-Host "Github Go-Spacemesh version: $($gitVersion)" -ForegroundColor Green
                     Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Outdated!" -ForegroundColor DarkYellow
-					Write-Host `n
+                    Write-Host `n
                     break
                 }
             }
         }
 		
-		$newline = "`r`n"
+        $newline = "`r`n"
         $nodesOffline = $null
-		foreach ($node in $object| Where-Object { (($_.status -match "Offline") -and ($_.port -ne 0)  -and ($stage -ne 2)) }) {
-			$nodesOffline = $true
+        foreach ($node in $object | Where-Object { (($_.status -match "Offline") -and ($_.port -ne 0) -and ($stage -ne 2)) }) {
+            $nodesOffline = $true
             break
-		}
+        }
         if ($nodesOffline) {
             Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> Some of your nodes are Offline!" -ForegroundColor DarkYellow
-			Write-Host `n
+            Write-Host `n
             if ($emailEnable -eq "True" -And (isValidEmail($myEmail))) {
                 $Body = "Warning, some nodes are offline!"
     
@@ -605,7 +606,7 @@ function main {
                     }
                     Catch {
                         Write-Host "oops! SMTP error, please check your settings." -ForegroundColor DarkRed
-						Write-Host `n
+                        Write-Host `n
                     }
                     Finally {
                         Write-Host "Email sent..." -ForegroundColor DarkYellow
@@ -695,7 +696,7 @@ function main {
             if ($gitNewVersion) {
                 $gitVersion = $gitNewVersion
             }
-			$gitNewMonitorVersion = Get-gitNewMonitorVersion
+            $gitNewMonitorVersion = Get-gitNewMonitorVersion
             $highestAtx = $null
             $malfeasanceStream = $null
             $OneHourTimer.Restart()
