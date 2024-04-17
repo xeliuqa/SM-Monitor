@@ -315,11 +315,12 @@ function main {
             
             foreach ($key in $waitProofs.Keys) {
                 if ($key -eq $node.publicKey) {
-                    if ($node.atx) {
-                        $node.atx = $node.atx + ', ' + $waitProofs[$key]
+                    $waitProof = $waitProofs[$key]
+                    if ($node.atx -and ($node.atx -ne $waitProof)) {
+                        $node.atx = $node.atx + ', ' + $waitProof
                     }
                     else {
-                        $node.atx = $waitProofs[$key]
+                        $node.atx = $waitProof
                     }
                 }
             }
