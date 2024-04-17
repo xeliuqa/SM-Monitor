@@ -567,7 +567,7 @@ function main {
                 $Body = "Warning, some nodes are offline!"
     
                 foreach ($node in $syncNodes.Values) {
-                    if (!$node.online) {
+                    if (!$node.online -and ($_.port -ne 0)) {
                         $Body = $body + $newLine + $node.name + " " + $node.Host + " " + $node.status
                         if (!$node.emailsent) {
                             $OKtoSend = "True"
