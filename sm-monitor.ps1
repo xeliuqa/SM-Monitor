@@ -37,6 +37,7 @@ function main {
         $nodeList = @()
         foreach ($line in $nodeListContent) {
             if ($line.Trim() -ne "" -and $line[0] -ne "#") {
+	    	    $line = $line -split "#"[0]
                 $nodeInfo = $line -split ","
                 $node = @{
                     name  = $nodeInfo[0].Trim()
