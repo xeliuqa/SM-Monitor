@@ -8,8 +8,9 @@ $DefaultBackgroundColor = "Black" # Set to the colour of your console if 'Black'
     
 $emailEnable = "False" # "True" to enable email notification, "True" or "False"
 $myEmail = "my@email.com" #Set your Email for notifications
-    
-$ShowPorts = "False" # True to show node's ports. "True" or "False"
+
+$showFullID = "False" # Set to True to see a full ID intead of short one. "True" or "False"
+$showPorts = "False" # True to show node's ports. "True" or "False"
 $queryHighestAtx = "False" # "True" to request for Highest ATX. "True" or "False"
 $checkIfBanned = "False" # "True" if you want to check if the node is banned. "True" or "False"
 $showELG = "True"  # "True" if you want to show the number of Epoch when the node will be eligible for rewards. "True" or "False"
