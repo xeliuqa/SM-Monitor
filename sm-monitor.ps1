@@ -399,7 +399,7 @@ function main {
     
             $o = [PSCustomObject]@{
                 Name     = $node.name
-                NodeID   = $node.shortKey
+                NodeID   = if (($null -eq $showFullID) -or ($showFullID -eq "False")) {$node.shortKey} else {$node.fullkey}
                 Host     = $node.host
                 Port     = $node.port
                 Port2    = $node.port2
@@ -479,7 +479,7 @@ function main {
         Clear-Host
         $object | ForEach-Object {
             $props = 'Name', 'Host'
-            if ($ShowPorts -eq "True") { $props += 'Port', 'Port2', 'Port3' }
+            if ($showPorts -eq "True") { $props += 'Port', 'Port2', 'Port3' }
             $props += 'Peers', 'Synced', 'Layer', 'Verified', 'Version', 'Status', 'NodeID', 'SU', 'SizeTiB', 'RWD'
             if ($showELG -eq "True") { $props += 'ELG' }
             if ($checkIfBanned -eq "True") { $props += 'BAN' }
