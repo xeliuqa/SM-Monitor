@@ -622,7 +622,7 @@ function main {
         if ($stage -ne 2) {
             $currentDate = Get-Date -Format HH:mm:ss
             # Refresh
-            Write-Host "Press SPACE to refresh" -ForegroundColor DarkGray
+            Write-Host "Press SPACE to refresh, R to reload" -ForegroundColor DarkGray
             Write-Host "Last refresh:  " -ForegroundColor Yellow -nonewline; Write-Host "$currentDate" -ForegroundColor Green 
         }
             
