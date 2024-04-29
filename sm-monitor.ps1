@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 4.03
+.VERSION 4.04
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -15,7 +15,7 @@ With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa == Miguell
 
 Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 	-------------------------------------------------------------------------------------------- #>
-$version = "4.03"
+$version = "4.04"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 function main {
@@ -37,6 +37,7 @@ function main {
         $nodeList = @()
         foreach ($line in $nodeListContent) {
             if ($line.Trim() -ne "" -and $line[0] -ne "#") {
+	    	    $line = $line -split "#"[0]
                 $nodeInfo = $line -split ","
                 $node = @{
                     name  = $nodeInfo[0].Trim()
@@ -315,11 +316,12 @@ function main {
             
             foreach ($key in $waitProofs.Keys) {
                 if ($key -eq $node.publicKey) {
-                    if ($node.atx) {
-                        $node.atx = $node.atx + ', ' + $waitProofs[$key]
+                    $waitProof = $waitProofs[$key]
+                    if ($node.atx -and ($node.atx -ne $waitProof)) {
+                        $node.atx = $node.atx + ', ' + $waitProof
                     }
                     else {
-                        $node.atx = $waitProofs[$key]
+                        $node.atx = $waitProof
                     }
                 }
             }
@@ -397,7 +399,7 @@ function main {
     
             $o = [PSCustomObject]@{
                 Name     = $node.name
-                NodeID   = $node.shortKey
+                NodeID   = if (($null -eq $showFullID) -or ($showFullID -eq "False")) {$node.shortKey} else {$node.fullkey}
                 Host     = $node.host
                 Port     = $node.port
                 Port2    = $node.port2
@@ -477,7 +479,7 @@ function main {
         Clear-Host
         $object | ForEach-Object {
             $props = 'Name', 'Host'
-            if ($ShowPorts -eq "True") { $props += 'Port', 'Port2', 'Port3' }
+            if ($showPorts -eq "True") { $props += 'Port', 'Port2', 'Port3' }
             $props += 'Peers', 'Synced', 'Layer', 'Verified', 'Version', 'Status', 'NodeID', 'SU', 'SizeTiB', 'RWD'
             if ($showELG -eq "True") { $props += 'ELG' }
             if ($checkIfBanned -eq "True") { $props += 'BAN' }
@@ -567,7 +569,7 @@ function main {
                 $Body = "Warning, some nodes are offline!"
     
                 foreach ($node in $syncNodes.Values) {
-                    if (!$node.online) {
+                    if (!$node.online -and ($_.port -ne 0)) {
                         $Body = $body + $newLine + $node.name + " " + $node.Host + " " + $node.status
                         if (!$node.emailsent) {
                             $OKtoSend = "True"
@@ -620,7 +622,7 @@ function main {
         if ($stage -ne 2) {
             $currentDate = Get-Date -Format HH:mm:ss
             # Refresh
-            Write-Host "Press SPACE to refresh" -ForegroundColor DarkGray
+            Write-Host "Press SPACE to refresh, R to reload" -ForegroundColor DarkGray
             Write-Host "Last refresh:  " -ForegroundColor Yellow -nonewline; Write-Host "$currentDate" -ForegroundColor Green 
         }
             
