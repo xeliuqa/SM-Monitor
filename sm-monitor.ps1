@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 4.04
+.VERSION 4.05
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -15,7 +15,7 @@ With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa == Miguell
 
 Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 	-------------------------------------------------------------------------------------------- #>
-$version = "4.04"
+$version = "4.05"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 function main {
@@ -505,7 +505,9 @@ function main {
             $highestAtx = ($jobResult | ConvertFrom-Json).atx
             $highestAtxJob = $null
         }
-    
+
+        $totalSUs = ($nodeList | Measure-Object -Property 'SU' -Sum).sum
+        $totalSize = [Math]::Round($totalSUs * 64 * 0.0009765625, 3)
         Write-Host `n
     
         Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
@@ -521,6 +523,7 @@ function main {
         if ($showWalletBalance -eq "True") {
             Write-Host "Balance: " -ForegroundColor Cyan -NoNewline; Write-Host "$balanceSMH" -ForegroundColor White -NoNewline; Write-Host " $($coinbase)" -ForegroundColor Cyan
         }
+        Write-Host "Total SUs: " -ForegroundColor Cyan -nonewline; Write-Host ($totalSUs) -ForegroundColor Yellow -nonewline; Write-Host " SUs" -nonewline; Write-Host "  Total Size: " -ForegroundColor Cyan -nonewline; Write-Host ($totalSize) -ForegroundColor Yellow -nonewline; Write-Host " TiBs"
         if ($highestAtx) {
             Write-Host "Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $highestAtx.id.id) -ForegroundColor Green
         }
