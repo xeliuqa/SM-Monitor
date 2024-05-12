@@ -37,7 +37,7 @@ function main {
         $nodeList = @()
         foreach ($line in $nodeListContent) {
             if ($line.Trim() -ne "" -and $line[0] -ne "#") {
-	    	    $line = $line -split "#"[0]
+                $line = $line -split "#"[0]
                 $nodeInfo = $line -split ","
                 $node = @{
                     name  = $nodeInfo[0].Trim()
@@ -399,7 +399,7 @@ function main {
     
             $o = [PSCustomObject]@{
                 Name     = $node.name
-                NodeID   = if (($null -eq $showFullID) -or ($showFullID -eq "False")) {$node.shortKey} else {$node.fullkey}
+                SmesherID   = if (($null -eq $showFullID) -or ($showFullID -eq "False")) {$node.shortKey} else {$node.fullkey}
                 Host     = $node.host
                 Port     = $node.port
                 Port2    = $node.port2
@@ -458,7 +458,7 @@ function main {
         if (($showWalletBalance -eq "True") -and $privateOnlineNodes.name.count -gt 0) {
             $coinbase = (Invoke-Expression "$grpcurl --plaintext -max-time 10 $($privateOnlineNodes.Host):$($privateOnlineNodes.Port2) spacemesh.v1.SmesherService.Coinbase" | ConvertFrom-Json).accountId.address
             $jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$coinbase`" }, `"account_data_flags`": 4 } }"
-            $balance = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' $($privateOnlineNodes.Host):$($privateOnlineNodes.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value
+            $balance = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' -max-time 10 $($privateOnlineNodes.Host):$($privateOnlineNodes.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value
             $balanceSMH = [string]([math]::Round($balance / 1000000000, 3)) + " SMH"
             $coinbase = "($coinbase)"
             if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
@@ -480,7 +480,7 @@ function main {
         $object | ForEach-Object {
             $props = 'Name', 'Host'
             if ($showPorts -eq "True") { $props += 'Port', 'Port2', 'Port3' }
-            $props += 'Peers', 'Synced', 'Layer', 'Verified', 'Version', 'Status', 'NodeID', 'SU', 'SizeTiB', 'RWD'
+            $props += 'Peers', 'Synced', 'Layer', 'Verified', 'Version', 'Status', 'SmesherID', 'SU', 'SizeTiB', 'RWD'
             if ($showELG -eq "True") { $props += 'ELG' }
             if ($checkIfBanned -eq "True") { $props += 'BAN' }
             $_ | Select-Object $props
@@ -572,7 +572,7 @@ function main {
                 $Body = "Warning, some nodes are offline!"
     
                 foreach ($node in $syncNodes.Values) {
-                    if (!$node.online -and ($_.port -ne 0)) {
+                    if (!$node.online -and ($node.port -ne 0)) {
                         $Body = $body + $newLine + $node.name + " " + $node.Host + " " + $node.status
                         if (!$node.emailsent) {
                             $OKtoSend = "True"
@@ -708,6 +708,31 @@ function main {
         }
     }
 }
+
+function Format-Hyperlink {
+  param(
+    [Parameter(ValueFromPipeline = $true, Position = 0)]
+    [ValidateNotNullOrEmpty()]
+    [Uri] $Uri,
+
+    [Parameter(Mandatory=$false, Position = 1)]
+    [string] $Label
+  )
+
+  if (($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) -and -not $Env:WT_SESSION) {
+    # Fallback for Windows users not inside Windows Terminal
+    if ($Label) {
+      return "$Label ($Uri)"
+    }
+    return "$Uri"
+  }
+
+  if ($Label) {
+    return "`e]8;;$Uri`e\$Label`e]8;;`e\"
+  }
+
+  return "$Uri"
+}
     
 function IsValidEmail {
     param([string]$Email)
@@ -801,6 +826,11 @@ function ColorizeMyObject {
                     }
                 }
                     
+                if (($showFullID -eq "True") -and ($header -eq "SmesherID") -and ($propertyValue -ne "")) {
+                    $Uri = "https://explorer.spacemesh.io/smeshers/0x" + $propertyValue
+                    $propertyValue = "$(Format-Hyperlink -Uri $Uri -Label $propertyValue)".ToLower()
+                    $foregroundColor = "Green"
+                }
                 $paddedValue = $propertyValue.PadRight($maxWidths[$header])
     
                 if ($foregroundColor -or $backgroundColor) {
