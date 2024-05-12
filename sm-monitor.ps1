@@ -330,7 +330,7 @@ function main {
                 $node.numUnits = $node.su
             }
     
-            if ($node.publicKey -and !$node.shortKey) {
+            if ($node.publicKey) {
                 $node.fullkey = (B64_to_Hex -id2convert $node.publicKey)
                 # Extract last 5 digits from SmesherID
                 $node.shortKey = $node.fullkey.substring($node.fullkey.length - 5, 5)
@@ -388,9 +388,24 @@ function main {
                         }
                     }
                     if (!$found) {
-                        $node.status = "Idle!"
+                        $node.status = "!Idle"
                     }
                 }
+            }
+        }
+        
+        $duplicateKeys = @{}
+        foreach ($node in $syncNodes.Values) {
+            if ($duplicateKeys.ContainsKey($node.publicKey)) {
+                $duplicateKeys[$node.publicKey]++
+            } else {
+                $duplicateKeys[$node.publicKey] = 1
+            }
+        }
+        foreach ($node in $syncNodes.Values) {
+            if ($duplicateKeys[$node.publicKey] -gt 1) {
+                $node.shortKey = "!" + $node.shortKey
+                $node.fullkey = "!" + $node.fullkey
             }
         }
         
@@ -825,14 +840,37 @@ function ColorizeMyObject {
                         }
                     }
                 }
-                    
-                if (($showFullID -eq "True") -and ($header -eq "SmesherID") -and ($propertyValue -ne "")) {
-                    $Uri = "https://explorer.spacemesh.io/smeshers/0x" + $propertyValue
-                    $propertyValue = "$(Format-Hyperlink -Uri $Uri -Label $propertyValue)".ToLower()
-                    $foregroundColor = "Green"
+                
+                if ($header -eq "Status") {
+                    if ($propertyValue -like '!*') {
+                        $foregroundColor = "Red"
+                        $propertyValue = $propertyValue.TrimStart('!')
+                    }
                 }
-                $paddedValue = $propertyValue.PadRight($maxWidths[$header])
-    
+                
+                if (($propertyValue) -and ($header -eq "SmesherID")) {
+                     if ($propertyValue -like '!*') {
+                        $foregroundColor = "Red"
+                        $propertyValue = $propertyValue.TrimStart('!')
+                    } else{
+                        if ($showFullID -eq "True") {
+                            $foregroundColor = "Green"
+                        }
+                    }
+
+                    if ($showFullID -eq "True") {
+                        $propertyValue = $propertyValue.ToLower()
+                        $Uri = "https://explorer.spacemesh.io/smeshers/0x" + $propertyValue
+                        $propertyValue = "$(Format-Hyperlink -Uri $Uri -Label $propertyValue)"
+                    }
+                }
+
+                if (($header -eq "Name") -or ($header -eq "SizeTiB")) {
+                    $paddedValue = $propertyValue.PadRight($maxWidths[$header])
+                } else {
+                    $paddedValue = $propertyValue.PadLeft($maxWidths[$header])
+                }
+                
                 if ($foregroundColor -or $backgroundColor) {
                     if ($backgroundColor) {
                         Write-Host $paddedValue -NoNewline -ForegroundColor $foregroundColor -BackgroundColor $backgroundColor
@@ -954,7 +992,6 @@ function applyColumnRules {
         @{ Column = "Status"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "Online"; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "Idle"; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
-        @{ Column = "Status"; Value = "Idle!"; ForegroundColor = "Red"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "Proving"; ForegroundColor = "Yellow"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "Smeshing"; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = $DefaultBackgroundColor },
