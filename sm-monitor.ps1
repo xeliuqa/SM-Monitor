@@ -736,10 +736,7 @@ function Format-Hyperlink {
 
   if (($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) -and -not $Env:WT_SESSION) {
     # Fallback for Windows users not inside Windows Terminal
-    if ($Label) {
-      return "$Label ($Uri)"
-    }
-    return "$Uri"
+    return "$Label"
   }
 
   if ($Label) {
