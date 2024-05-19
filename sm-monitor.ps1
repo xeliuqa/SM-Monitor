@@ -36,9 +36,10 @@ function main {
         $nodeListContent = Get-Content $nodeListFile
         $nodeList = @()
         foreach ($line in $nodeListContent) {
-            if ($line.Trim() -ne "" -and $line[0] -ne "#") {
+            if (($line.Trim() -ne "") -and ($line[0] -ne "#")) {
                 $line = $line -split "#"[0]
                 $nodeInfo = $line -split ","
+                if ($nodeInfo[0].Trim() -ne 'empty') {
                 $node = @{
                     name  = $nodeInfo[0].Trim()
                     host  = if ($nodeInfo.Count -ge 2) { $nodeInfo[1].Trim() } else { "localhost" }
@@ -46,6 +47,9 @@ function main {
                     port2 = if ($nodeInfo.Count -ge 4 -and [int32]::TryParse($nodeInfo[3].Trim(), [ref]$null)) { [int]$nodeInfo[3].Trim() } else { 9093 }
                     port3 = if ($nodeInfo.Count -ge 5 -and [int32]::TryParse($nodeInfo[4].Trim(), [ref]$null)) { [int]$nodeInfo[4].Trim() } else { 9094 }
                     su    = if ($nodeInfo.Count -ge 6 -and [int32]::TryParse($nodeInfo[5].Trim(), [ref]$null)) { [int]$nodeInfo[5].Trim() } else { 0 }
+                }
+                } else {
+                    $node = @{name = ""}
                 }
                 $nodeList += $node
             }
@@ -91,7 +95,7 @@ function main {
             $grpcurl = $using:grpcurl
             $syncNodesCopy = $using:syncNodes
 
-            if (($using:stage -ne 1) -and ($using:stage -ne 4) -and ($node.port -ne 0) -and ($node.port2 -ne 0)) {
+            if (($using:stage -ne 1) -and ($using:stage -ne 4) -and ($node.port -ne 0) -and ($node.port2 -ne 0) -and ($node.name -ne '')) {
                 $status = $null
                 $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 10 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
     
@@ -217,18 +221,18 @@ function main {
                         $node.status = "$($percent)%"
                     }
                 }
-            }
 			
-            if (($node.port -ne 0) -and ($node.port2 -ne 0) -and ($node.port3 -ne 0)) {
-                $node.post = @{}
-                $states = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port3) spacemesh.v1.PostInfoService.PostStates")) | ConvertFrom-Json).states 2>$null
-                if ($states) {
-                    foreach ($post in $states) {
-                        $postName = ($post.name).Replace(".key", "")
-                        $node.post[$postName] = @{
-                            "state" = $post.state
-                            "id"    = $post.id
-                            "node"  = $node.name
+                if (($node.port3 -ne 0)) {
+                    $node.post = @{}
+                    $states = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port3) spacemesh.v1.PostInfoService.PostStates")) | ConvertFrom-Json).states 2>$null
+                    if ($states) {
+                        foreach ($post in $states) {
+                            $postName = ($post.name).Replace(".key", "")
+                            $node.post[$postName] = @{
+                                "state" = $post.state
+                                "id"    = $post.id
+                                "node"  = $node.name
+                            }
                         }
                     }
                 }
