@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 4.04
+.VERSION 4.05
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -15,7 +15,7 @@ With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa == Miguell
 
 Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 	-------------------------------------------------------------------------------------------- #>
-$version = "4.04"
+$version = "4.05"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 function main {
@@ -36,9 +36,10 @@ function main {
         $nodeListContent = Get-Content $nodeListFile
         $nodeList = @()
         foreach ($line in $nodeListContent) {
-            if ($line.Trim() -ne "" -and $line[0] -ne "#") {
-	    	    $line = $line -split "#"[0]
+            if (($line.Trim() -ne "") -and ($line[0] -ne "#")) {
+                $line = $line -split "#"[0]
                 $nodeInfo = $line -split ","
+                if ($nodeInfo[0].Trim() -ne 'empty') {
                 $node = @{
                     name  = $nodeInfo[0].Trim()
                     host  = if ($nodeInfo.Count -ge 2) { $nodeInfo[1].Trim() } else { "localhost" }
@@ -46,6 +47,9 @@ function main {
                     port2 = if ($nodeInfo.Count -ge 4 -and [int32]::TryParse($nodeInfo[3].Trim(), [ref]$null)) { [int]$nodeInfo[3].Trim() } else { 9093 }
                     port3 = if ($nodeInfo.Count -ge 5 -and [int32]::TryParse($nodeInfo[4].Trim(), [ref]$null)) { [int]$nodeInfo[4].Trim() } else { 9094 }
                     su    = if ($nodeInfo.Count -ge 6 -and [int32]::TryParse($nodeInfo[5].Trim(), [ref]$null)) { [int]$nodeInfo[5].Trim() } else { 0 }
+                }
+                } else {
+                    $node = @{name = ""}
                 }
                 $nodeList += $node
             }
@@ -91,7 +95,7 @@ function main {
             $grpcurl = $using:grpcurl
             $syncNodesCopy = $using:syncNodes
 
-            if (($using:stage -ne 1) -and ($using:stage -ne 4) -and ($node.port -ne 0) -and ($node.port2 -ne 0)) {
+            if (($using:stage -ne 1) -and ($using:stage -ne 4) -and ($node.port -ne 0) -and ($node.port2 -ne 0) -and ($node.name -ne '')) {
                 $status = $null
                 $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 10 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
     
@@ -217,18 +221,18 @@ function main {
                         $node.status = "$($percent)%"
                     }
                 }
-            }
 			
-            if (($node.port -ne 0) -and ($node.port2 -ne 0) -and ($node.port3 -ne 0)) {
-                $node.post = @{}
-                $states = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port3) spacemesh.v1.PostInfoService.PostStates")) | ConvertFrom-Json).states 2>$null
-                if ($states) {
-                    foreach ($post in $states) {
-                        $postName = ($post.name).Replace(".key", "")
-                        $node.post[$postName] = @{
-                            "state" = $post.state
-                            "id"    = $post.id
-                            "node"  = $node.name
+                if (($node.port3 -ne 0)) {
+                    $node.post = @{}
+                    $states = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port3) spacemesh.v1.PostInfoService.PostStates")) | ConvertFrom-Json).states 2>$null
+                    if ($states) {
+                        foreach ($post in $states) {
+                            $postName = ($post.name).Replace(".key", "")
+                            $node.post[$postName] = @{
+                                "state" = $post.state
+                                "id"    = $post.id
+                                "node"  = $node.name
+                            }
                         }
                     }
                 }
@@ -330,7 +334,7 @@ function main {
                 $node.numUnits = $node.su
             }
     
-            if ($node.publicKey -and !$node.shortKey) {
+            if ($node.publicKey) {
                 $node.fullkey = (B64_to_Hex -id2convert $node.publicKey)
                 # Extract last 5 digits from SmesherID
                 $node.shortKey = $node.fullkey.substring($node.fullkey.length - 5, 5)
@@ -388,9 +392,24 @@ function main {
                         }
                     }
                     if (!$found) {
-                        $node.status = "Idle!"
+                        $node.status = "!Idle"
                     }
                 }
+            }
+        }
+        
+        $duplicateKeys = @{}
+        foreach ($node in $syncNodes.Values) {
+            if ($duplicateKeys.ContainsKey($node.publicKey)) {
+                $duplicateKeys[$node.publicKey]++
+            } else {
+                $duplicateKeys[$node.publicKey] = 1
+            }
+        }
+        foreach ($node in $syncNodes.Values) {
+            if ($duplicateKeys[$node.publicKey] -gt 1) {
+                $node.shortKey = "!" + $node.shortKey
+                $node.fullkey = "!" + $node.fullkey
             }
         }
         
@@ -399,7 +418,7 @@ function main {
     
             $o = [PSCustomObject]@{
                 Name     = $node.name
-                NodeID   = if (($null -eq $showFullID) -or ($showFullID -eq "False")) {$node.shortKey} else {$node.fullkey}
+                SmesherID   = if (($null -eq $showFullID) -or ($showFullID -eq "False")) {$node.shortKey} else {$node.fullkey}
                 Host     = $node.host
                 Port     = $node.port
                 Port2    = $node.port2
@@ -458,7 +477,7 @@ function main {
         if (($showWalletBalance -eq "True") -and $privateOnlineNodes.name.count -gt 0) {
             $coinbase = (Invoke-Expression "$grpcurl --plaintext -max-time 10 $($privateOnlineNodes.Host):$($privateOnlineNodes.Port2) spacemesh.v1.SmesherService.Coinbase" | ConvertFrom-Json).accountId.address
             $jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$coinbase`" }, `"account_data_flags`": 4 } }"
-            $balance = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' $($privateOnlineNodes.Host):$($privateOnlineNodes.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value
+            $balance = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' -max-time 10 $($privateOnlineNodes.Host):$($privateOnlineNodes.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value
             $balanceSMH = [string]([math]::Round($balance / 1000000000, 3)) + " SMH"
             $coinbase = "($coinbase)"
             if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
@@ -480,7 +499,7 @@ function main {
         $object | ForEach-Object {
             $props = 'Name', 'Host'
             if ($showPorts -eq "True") { $props += 'Port', 'Port2', 'Port3' }
-            $props += 'Peers', 'Synced', 'Layer', 'Verified', 'Version', 'Status', 'NodeID', 'SU', 'SizeTiB', 'RWD'
+            $props += 'Peers', 'Synced', 'Layer', 'Verified', 'Version', 'Status', 'SmesherID', 'SU', 'SizeTiB', 'RWD'
             if ($showELG -eq "True") { $props += 'ELG' }
             if ($checkIfBanned -eq "True") { $props += 'BAN' }
             $_ | Select-Object $props
@@ -505,7 +524,9 @@ function main {
             $highestAtx = ($jobResult | ConvertFrom-Json).atx
             $highestAtxJob = $null
         }
-    
+
+        $totalSUs = ($nodeList | Measure-Object -Property 'SU' -Sum).sum
+        $totalSize = [Math]::Round($totalSUs * 64 * 0.0009765625, 3)
         Write-Host `n
     
         Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
@@ -521,6 +542,7 @@ function main {
         if ($showWalletBalance -eq "True") {
             Write-Host "Balance: " -ForegroundColor Cyan -NoNewline; Write-Host "$balanceSMH" -ForegroundColor White -NoNewline; Write-Host " $($coinbase)" -ForegroundColor Cyan
         }
+        Write-Host "Total SUs: " -ForegroundColor Cyan -nonewline; Write-Host ($totalSUs) -ForegroundColor Yellow -nonewline; Write-Host " SUs" -nonewline; Write-Host "  Total Size: " -ForegroundColor Cyan -nonewline; Write-Host ($totalSize) -ForegroundColor Yellow -nonewline; Write-Host " TiBs"
         if ($highestAtx) {
             Write-Host "Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $highestAtx.id.id) -ForegroundColor Green
         }
@@ -569,7 +591,7 @@ function main {
                 $Body = "Warning, some nodes are offline!"
     
                 foreach ($node in $syncNodes.Values) {
-                    if (!$node.online -and ($_.port -ne 0)) {
+                    if (!$node.online -and ($node.port -ne 0)) {
                         $Body = $body + $newLine + $node.name + " " + $node.Host + " " + $node.status
                         if (!$node.emailsent) {
                             $OKtoSend = "True"
@@ -705,6 +727,28 @@ function main {
         }
     }
 }
+
+function Format-Hyperlink {
+  param(
+    [Parameter(ValueFromPipeline = $true, Position = 0)]
+    [ValidateNotNullOrEmpty()]
+    [Uri] $Uri,
+
+    [Parameter(Mandatory=$false, Position = 1)]
+    [string] $Label
+  )
+
+  if (($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) -and -not $Env:WT_SESSION) {
+    # Fallback for Windows users not inside Windows Terminal
+    return "$Label"
+  }
+
+  if ($Label) {
+    return "`e]8;;$Uri`e\$Label`e]8;;`e\"
+  }
+
+  return "$Uri"
+}
     
 function IsValidEmail {
     param([string]$Email)
@@ -797,9 +841,37 @@ function ColorizeMyObject {
                         }
                     }
                 }
-                    
-                $paddedValue = $propertyValue.PadRight($maxWidths[$header])
-    
+                
+                if ($header -eq "Status") {
+                    if ($propertyValue -like '!*') {
+                        $foregroundColor = "Red"
+                        $propertyValue = $propertyValue.TrimStart('!')
+                    }
+                }
+                
+                if (($propertyValue) -and ($header -eq "SmesherID")) {
+                     if ($propertyValue -like '!*') {
+                        $foregroundColor = "Red"
+                        $propertyValue = $propertyValue.TrimStart('!')
+                    } else{
+                        if ($showFullID -eq "True") {
+                            $foregroundColor = "Green"
+                        }
+                    }
+
+                    if ($showFullID -eq "True") {
+                        $propertyValue = $propertyValue.ToLower()
+                        $Uri = "https://explorer.spacemesh.io/smeshers/0x" + $propertyValue
+                        $propertyValue = "$(Format-Hyperlink -Uri $Uri -Label $propertyValue)"
+                    }
+                }
+
+                if (($header -eq "Name") -or ($header -eq "SizeTiB")) {
+                    $paddedValue = $propertyValue.PadRight($maxWidths[$header])
+                } else {
+                    $paddedValue = $propertyValue.PadLeft($maxWidths[$header])
+                }
+                
                 if ($foregroundColor -or $backgroundColor) {
                     if ($backgroundColor) {
                         Write-Host $paddedValue -NoNewline -ForegroundColor $foregroundColor -BackgroundColor $backgroundColor
@@ -921,7 +993,6 @@ function applyColumnRules {
         @{ Column = "Status"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "Online"; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "Idle"; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
-        @{ Column = "Status"; Value = "Idle!"; ForegroundColor = "Red"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "Proving"; ForegroundColor = "Yellow"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "Smeshing"; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = $DefaultBackgroundColor },
