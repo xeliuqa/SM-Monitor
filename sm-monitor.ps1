@@ -446,57 +446,64 @@ function main {
             $object += $o
         }
 		
-        if ($rewardsTrackApp -and ($fileFormat -ne 0)) {
-            $files = Get-ChildItem -Path .\ -Filter "RewardsTrackApp_*.json"
-            foreach ($file in $files) {
-                Remove-Item $file.FullName
-            }
-            $timestamp = Get-Date -Format "HHmm"
-            if ($fileFormat -eq 1) {
-                $data = (Get-Content RewardsTrackApp.tmp -Raw) -replace '(?m)}\s+{', ',' | ConvertFrom-Json
-                $data | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp_$timestamp.json"
-                Remove-Item ".\RewardsTrackApp.tmp"
-            }
-            elseif ($fileFormat -eq 2) {
-                $rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp_$timestamp.json"
-            }
-            elseif (($fileFormat -eq 3)) {
-                $rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "SM-Layers.json"
+        if (($stage -ne 4) -and ($stage -ne 2)) {
+            if ($rewardsTrackApp -and ($fileFormat -ne 0)) {
+                $files = Get-ChildItem -Path .\ -Filter "RewardsTrackApp_*.json"
+                foreach ($file in $files) {
+                    Remove-Item $file.FullName
+                }
+                $timestamp = Get-Date -Format "HHmm"
+                if ($fileFormat -eq 1) {
+                    $data = (Get-Content RewardsTrackApp.tmp -Raw) -replace '(?m)}\s+{', ',' | ConvertFrom-Json
+                    $data | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp_$timestamp.json"
+                    Remove-Item ".\RewardsTrackApp.tmp"
+                }
+                elseif ($fileFormat -eq 2) {
+                    $rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "RewardsTrackApp_$timestamp.json"
+                }
+                elseif (($fileFormat -eq 3)) {
+                    $rewardsTrackApp | ConvertTo-Json -Depth 99 | Set-Content "SM-Layers.json"
+                }
             }
         }
         
         if (($stage -ne 4) -and ($stage -ne 1)) {
-            # Find all private nodes, then select the first in the list.  Once we have this, we know that we have a good Online Local Private Node
+            # Find all online nodes, then select the one that works.  
             $filterObjects = $object | Where-Object { $_.Synced -match "True" } # -and $_.Host -match "localhost" -and $_.status -match "True"
+            $coinbase = $null
+            $balance = $null
             if ($filterObjects) {
-                $privateOnlineNodes = $filterObjects[0]
+                $onlineNode = $filterObjects[0]
                 if (($checkIfBanned -eq "True") -and !$malfeasanceStream) {
-                    $malfeasanceStream = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($privateOnlineNodes.Host):$($privateOnlineNodes.Port) spacemesh.v1.MeshService.MalfeasanceStream")) 2>$null
-                } 
+                    $malfeasanceStream = (Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($onlineNode.Host):$($onlineNode.Port) spacemesh.v1.MeshService.MalfeasanceStream")) 2>$null
+                }
+                if ($showWalletBalance -eq "True") {
+                    foreach ($node in $filterObjects) {
+                        $onlineNode = $node
+                        $coinbase = (Invoke-Expression "$grpcurl --plaintext -max-time 5 $($onlineNode.Host):$($onlineNode.Port2) spacemesh.v1.SmesherService.Coinbase" | ConvertFrom-Json).accountId.address 2>$null
+                        if ($coinbase) {
+                            break
+                        }
+                    }
+
+                    if ($coinbase) {
+                        $jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$coinbase`" }, `"account_data_flags`": 4 } }"
+                        $balance = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' -max-time 5 $($onlineNode.Host):$($onlineNode.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value 2>$null
+                        $balanceSMH = [string]([math]::Round($balance / 1000000000, 3)) + " SMH"
+                        $coinbase = "($coinbase)"
+                        if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
+                        if ($coinbaseAddressVisibility -eq "partial") {
+                            $coinbase = '(' + $($coinbase).Substring($($coinbase).IndexOf(")") - 4, 4) + ')'
+                        }
+                        elseif ($coinbaseAddressVisibility -eq "hidden") {
+                            $coinbase = "(----)"
+                        }
+                    } else {
+                        $coinbase = ""
+                        $balanceSMH = "Unable to retrieve the balance at the moment"
+                    }
+                }
             }
-            else {
-                $privateOnlineNodes = $null
-            }
-        }
-    
-        # If private nodes are found, determine the PS version and execute corresponding grpcurl if statement. Else skip.
-        if (($showWalletBalance -eq "True") -and $privateOnlineNodes.name.count -gt 0) {
-            $coinbase = (Invoke-Expression "$grpcurl --plaintext -max-time 10 $($privateOnlineNodes.Host):$($privateOnlineNodes.Port2) spacemesh.v1.SmesherService.Coinbase" | ConvertFrom-Json).accountId.address
-            $jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$coinbase`" }, `"account_data_flags`": 4 } }"
-            $balance = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' -max-time 10 $($privateOnlineNodes.Host):$($privateOnlineNodes.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value
-            $balanceSMH = [string]([math]::Round($balance / 1000000000, 3)) + " SMH"
-            $coinbase = "($coinbase)"
-            if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
-            if ($coinbaseAddressVisibility -eq "partial") {
-                $coinbase = '(' + $($coinbase).Substring($($coinbase).IndexOf(")") - 4, 4) + ')'
-            }
-            elseif ($coinbaseAddressVisibility -eq "hidden") {
-                $coinbase = "(----)"
-            }
-        }
-        else {
-            $coinbase = ""
-            $balanceSMH = "Unable to retrieve the balance at the moment"
         }
         
         $columnRules = applyColumnRules
