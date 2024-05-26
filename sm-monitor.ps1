@@ -30,6 +30,12 @@ function main {
         $null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         exit
     }
+    if (!(Test-Path $grpcurl)) {
+        Write-Host "Error: grpcurl not found." -ForegroundColor Red
+        Write-Host "Press any key to continue ..."
+        $null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        exit  
+    }
     # Import NodeList
     $nodeListFile = ".\sm-nodeList.txt"
     if (Test-Path $nodeListFile) {
