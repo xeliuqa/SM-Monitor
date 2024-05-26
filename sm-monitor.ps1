@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 4.05
+.VERSION 4.06
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -15,7 +15,7 @@ With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa == Miguell
 
 Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 	-------------------------------------------------------------------------------------------- #>
-$version = "4.05"
+$version = "4.06"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 function main {
@@ -406,14 +406,16 @@ function main {
         
         $duplicateKeys = @{}
         foreach ($node in $syncNodes.Values) {
+            if ($node.publicKey -ne $null) {
             if ($duplicateKeys.ContainsKey($node.publicKey)) {
                 $duplicateKeys[$node.publicKey]++
             } else {
                 $duplicateKeys[$node.publicKey] = 1
             }
         }
+        }
         foreach ($node in $syncNodes.Values) {
-            if ($duplicateKeys[$node.publicKey] -gt 1) {
+            if (($node.publicKey -ne $null) -and ($duplicateKeys[$node.publicKey] -gt 1)) {
                 $node.shortKey = "!" + $node.shortKey
                 $node.fullkey = "!" + $node.fullkey
             }
@@ -445,7 +447,7 @@ function main {
 	
             $object += $o
         }
-		
+
         if (($stage -ne 4) -and ($stage -ne 2)) {
             if ($rewardsTrackApp -and ($fileFormat -ne 0)) {
                 $files = Get-ChildItem -Path .\ -Filter "RewardsTrackApp_*.json"
@@ -466,7 +468,7 @@ function main {
                 }
             }
         }
-        
+
         if (($stage -ne 4) -and ($stage -ne 1)) {
             # Find all online nodes, then select the one that works.  
             $filterObjects = $object | Where-Object { $_.Synced -match "True" } # -and $_.Host -match "localhost" -and $_.status -match "True"
@@ -505,7 +507,7 @@ function main {
                 }
             }
         }
-        
+
         $columnRules = applyColumnRules
     
         Clear-Host
@@ -981,8 +983,6 @@ function printSMMonitorLogo {
         
     $CursorPosition = [System.Management.Automation.Host.Coordinates]::new(0, $lines.Length + $verticalOffset + 1)
     $host.UI.RawUI.CursorPosition = $CursorPosition
-    # Start-Sleep $logoDelay
-    # Clear-Host
 }
 
 function applyColumnRules {
