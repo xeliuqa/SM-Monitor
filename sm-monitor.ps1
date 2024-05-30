@@ -385,6 +385,15 @@ function main {
             if ($node.topLayer -gt $topLayer) {
                 $topLayer = $node.topLayer
             }
+
+            $node.rewardLayer = ($node.layers.layer)
+            if (($node.rewardLayer) -and ($node.rewardLayer -lt $topLayer)) {
+                $node.rewardLayer = '!' + [string]$node.rewardLayer
+            } else {
+                if (($node.rewardLayer) -and (($node.rewardLayer - $topLayer) -le 12)) {
+                    $node.rewardLayer = '$' + [string]$node.rewardLayer
+                }
+            }
         }
         
         foreach ($node in $syncNodes.Values) {
@@ -440,7 +449,7 @@ function main {
                 Verified = $node.verifiedLayer
                 Version  = $node.version
                 Status   = $node.status
-                RWD      = $node.rewards
+                RWD      = $node.rewardLayer
                 ELG      = $node.atx
                 BAN      = $node.ban
             }
@@ -873,7 +882,18 @@ function ColorizeMyObject {
                             $foregroundColor = "Green"
                         }
                     }
-
+		    
+                if (($propertyValue) -and ($header -eq "RWD")) {
+                     if ($propertyValue -like '!*') {
+                         $foregroundColor = "DarkGray"
+                        $propertyValue = $propertyValue.TrimStart('!')
+                     }
+                     if ($propertyValue -like '$*') {
+                         $foregroundColor = "Green"
+                        $propertyValue = $propertyValue.TrimStart('$')
+                     }
+                }
+		
                     if ($showFullID -eq "True") {
                         $propertyValue = $propertyValue.ToLower()
                         $Uri = "https://explorer.spacemesh.io/smeshers/0x" + $propertyValue
