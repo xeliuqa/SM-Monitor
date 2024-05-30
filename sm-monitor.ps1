@@ -30,12 +30,24 @@ function main {
         $null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         exit
     }
-    if (!(Test-Path $grpcurl)) {
-        Write-Host "Error: grpcurl not found." -ForegroundColor Red
-        Write-Host "Press any key to continue ..."
-        $null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        exit  
-    }
+	if ($IsWindows) {
+    	if (!(Test-Path $grpcurl)) {
+        	Write-Host "Error: grpcurl not found." -ForegroundColor Red
+        	Write-Host "Press any key to continue ..."
+        	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        	exit  
+    	}
+	} else {
+    	$grpcurl_path = bash -c "which grpcurl"
+    	if ($grpcurl_path -eq $null -and !(Test-Path $grpcurl)) {
+        	Write-Host "Error: grpcurl not found." -ForegroundColor Red
+        	Write-Host "Press any key to continue ..."
+        	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        	exit  
+    	} elseif ($grpcurl_path -ne $null) {
+            $grpcurl = $grpcurl_path
+        }
+	}
     # Import NodeList
     $nodeListFile = ".\sm-nodeList.txt"
     if (Test-Path $nodeListFile) {
