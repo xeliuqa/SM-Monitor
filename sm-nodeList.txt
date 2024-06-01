@@ -25,3 +25,6 @@ empty
 Team 12H, localhost, 1012, 1013, 1014, 100
 node3, localhost, 0, 0, 50010, 0
 smeshnode, 192.168.1.125, 0, 0, 50020, 0
+
+# Running low on Coffee and Pizza. Feed us by sending a tip to sm1qqqqqqzk0d6f0dn8y8pj70kgpvxtafpt8r6g80cet937x 
+# SM-Monitor 2023-2024, all rights reserved.
