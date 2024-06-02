@@ -15,6 +15,7 @@ $queryHighestAtx = "False" # "True" to request for Highest ATX. "True" or "False
 $checkIfBanned = "False" # "True" if you want to check if the node is banned. "True" or "False"
 $showELG = "True"  # "True" if you want to show the number of Epoch when the node will be eligible for rewards. "True" or "False"
 $utf8 = "True" # Set to "False" if icons don't display correctly
+$thankYou = "No, I'm free user"
 
 $grpcurl = ".\grpcurl.exe" #Set GRPCurl path if not in the same folder.
 #Linux users, you know what to do!
@@ -27,3 +28,8 @@ $fileFormat = 0
 # 2 - a new format used for Spacemesh Reward Tracker App (by BVale)
 # 3 - use it for layers tracking website (by PlainLazy: http://fcmx.net/sm-eligibilities/)
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+<# 
+Show us your gratitude by sending a tip to sm1qqqqqqzk0d6f0dn8y8pj70kgpvxtafpt8r6g80cet937x 
+SM-Monitor 2023-2024, all rights reserved.
+ #>

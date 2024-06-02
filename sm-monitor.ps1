@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 4.06
+.VERSION 4.07
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -14,8 +14,11 @@ With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa == Miguell
 	for the various contributions in making this script awesome
 
 Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
+
+Show us your gratitude by sending a tip to sm1qqqqqqzk0d6f0dn8y8pj70kgpvxtafpt8r6g80cet937x 
+SM-Monitor 2023-2024, all rights reserved.
 	-------------------------------------------------------------------------------------------- #>
-$version = "4.06"
+$version = "4.07"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 function main {
@@ -30,12 +33,24 @@ function main {
         $null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         exit
     }
-    if (!(Test-Path $grpcurl)) {
-        Write-Host "Error: grpcurl not found." -ForegroundColor Red
-        Write-Host "Press any key to continue ..."
-        $null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        exit  
-    }
+	if ($IsWindows) {
+    	if (!(Test-Path $grpcurl)) {
+        	Write-Host "Error: grpcurl not found." -ForegroundColor Red
+        	Write-Host "Press any key to continue ..."
+        	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        	exit  
+    	}
+	} else {
+    	$grpcurl_path = bash -c "which grpcurl"
+    	if ($grpcurl_path -eq $null -and !(Test-Path $grpcurl)) {
+        	Write-Host "Error: grpcurl not found." -ForegroundColor Red
+        	Write-Host "Press any key to continue ..."
+        	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        	exit  
+    	} elseif ($grpcurl_path -ne $null) {
+            $grpcurl = $grpcurl_path
+        }
+	}
     # Import NodeList
     $nodeListFile = ".\sm-nodeList.txt"
     if (Test-Path $nodeListFile) {
@@ -71,11 +86,13 @@ function main {
     $syncNodes = [System.Collections.Hashtable]::Synchronized(@{})
     [System.Console]::CursorVisible = $false
     [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
+    $culture = [System.Globalization.CultureInfo]::InvariantCulture
     $PSDefaultParameterValues['*:Encoding'] = 'utf8'
     $ErrorActionPreference = 'SilentlyContinue' # 'Inquire', 'SilentlyContinue'
     $OneHourTimer = [System.Diagnostics.Stopwatch]::StartNew()
     $tableRefreshTimer = [System.Diagnostics.Stopwatch]::StartNew()
     $stage = 2 # 0 to ignore stages or 2 for initial stages
+    $tipAddress = "sm1qqqqqqzk0d6f0dn8y8pj70kgpvxtafpt8r6g80cet937x"
 
     printSMMonitorLogo
     
@@ -95,6 +112,7 @@ function main {
         $epoch = $null
         $totalLayers = $null
         $rewardsTrackApp = @()
+        $tm = set-tm
     
         $syncNodes.Values | ForEach-Object -ThrottleLimit 16 -Parallel {
             $node = $_
@@ -103,7 +121,7 @@ function main {
 
             if (($using:stage -ne 1) -and ($using:stage -ne 4) -and ($node.port -ne 0) -and ($node.port2 -ne 0) -and ($node.name -ne '')) {
                 $status = $null
-                $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 10 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
+                $status = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port) spacemesh.v1.NodeService.Status")) | ConvertFrom-Json).status  2>$null
     
                 if ($status) {
                     $node.online = "True"
@@ -129,6 +147,7 @@ function main {
                     $node.verifiedLayer = $null
                     $node.version = $null
                     $node.rewards = $null
+                    $node.elg = $null
                     $node.atx = $null
                     $node.ban = $null
                 }
@@ -164,7 +183,10 @@ function main {
                                     $eligibilities += $json.eligibilities
                                 }
                                 if ($json.atxPublished) {
-                                    $atxPublished += $json.atxPublished
+                                    $atxPublishedObject = @{}
+                                    $json.atxPublished.PSObject.Properties | ForEach-Object { $atxPublishedObject[$_.Name] = $_.Value }
+                                    $atxPublishedObject["timestamp"] = $json.timestamp
+                                    $atxPublished += $atxPublishedObject
                                 }
                                 if ($json.poetWaitProof) {
                                     $poetWaitProof += $json.poetWaitProof
@@ -188,9 +210,9 @@ function main {
                 }
                 $activations = @{}
                 foreach ($aPublished in $atxPublished) {
-                    if ($aPublished.current -eq $node.epoch.number) {
+                    if (($aPublished.current -eq $node.epoch.number) -or ($aPublished.target -eq $node.epoch.number)) {
                         $smesher = $aPublished.smesher
-                        $activations[$smesher] = $aPublished.target
+                        $activations[$smesher] = $aPublished
                         $node.activations = $activations
                     }
                 }
@@ -271,6 +293,7 @@ function main {
         $layers = @{}
         $activations = @{}
         $waitProofs = @{}
+        $epoch = $null
         foreach ($node in $syncNodes.Values) {
             if (($node.port -ne 0) -and ($node.port2 -ne 0)) {
                 foreach ($name in $node.post.Keys) {
@@ -290,24 +313,23 @@ function main {
                     $waitProofs += $node.waitProof
                     $node.waitProof = $null
                 }
+                if ($epoch -lt $node.epoch.number) {
+                    $epoch = $node.epoch.number
+                }
             }
         }
         
         foreach ($node in $syncNodes.Values) {
+            $node.elg = $null
             $node.atx = $null
             $node.ban = $null
             $node.rewards = $null
             $node.layers = $null
-
-            if ($epoch -lt $node.epoch.number) {
-                $epoch = $node.epoch.number
-            }
 			
             foreach ($name in $postServices.Keys) {
                 $post = $postServices[$name]
                 if ($name -eq $node.name) {
                     $node.publicKey = $post.id
-                    
                 }
             }
 
@@ -320,18 +342,23 @@ function main {
             
             foreach ($key in $activations.Keys) {
                 if ($key -eq $node.publicKey) {
-                    $node.atx = [string]$activations[$key]
+                    if ($epoch -ne $activations[$key].target) {
+                        $node.elg = [string]$activations[$key].target
+                    }
+                    $utcTime = [DateTime]::Parse($activations[$key].timestamp, $culture, [System.Globalization.DateTimeStyles]::RoundtripKind)
+                    $localTime = $utcTime.ToLocalTime()
+                    $node.atx = $localTime.ToString("dd.MM.yy HH:mm", $culture)
                 }
             }
             
             foreach ($key in $waitProofs.Keys) {
                 if ($key -eq $node.publicKey) {
                     $waitProof = $waitProofs[$key]
-                    if ($node.atx -and ($node.atx -ne $waitProof)) {
-                        $node.atx = $node.atx + ', ' + $waitProof
+                    if ($node.elg -and ($node.elg -ne $waitProof)) {
+                        $node.elg = $node.elg + ', ' + $waitProof
                     }
                     else {
-                        $node.atx = $waitProof
+                        $node.elg = $waitProof
                     }
                 }
             }
@@ -384,6 +411,15 @@ function main {
             
             if ($node.topLayer -gt $topLayer) {
                 $topLayer = $node.topLayer
+            }
+            
+            $node.rewardLayer = ($node.layers.layer)
+            if (($node.rewardLayer) -and ($node.rewardLayer -lt $topLayer)) {
+                $node.rewardLayer = '!' + [string]$node.rewardLayer
+            } else {
+                if (($node.rewardLayer) -and (($node.rewardLayer - $topLayer) -le 12)) {
+                    $node.rewardLayer = '$' + [string]$node.rewardLayer
+                }
             }
         }
         
@@ -440,8 +476,9 @@ function main {
                 Verified = $node.verifiedLayer
                 Version  = $node.version
                 Status   = $node.status
-                RWD      = $node.rewards
-                ELG      = $node.atx
+                RWD      = $node.rewardLayer
+                ELG      = $node.elg
+                ATX     = $node.atx
                 BAN      = $node.ban
             }
 	
@@ -491,7 +528,8 @@ function main {
                     if ($coinbase) {
                         $jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$coinbase`" }, `"account_data_flags`": 4 } }"
                         $balance = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' -max-time 5 $($onlineNode.Host):$($onlineNode.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value 2>$null
-                        $balanceSMH = [string]([math]::Round($balance / 1000000000, 3)) + " SMH"
+                        $balance = [math]::Round($balance / 1000000000, 3)
+                        $balanceSMH = [string]($balance) + " SMH"
                         $coinbase = "($coinbase)"
                         if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
                         if ($coinbaseAddressVisibility -eq "partial") {
@@ -516,13 +554,16 @@ function main {
             if ($showPorts -eq "True") { $props += 'Port', 'Port2', 'Port3' }
             $props += 'Peers', 'Synced', 'Layer', 'Verified', 'Version', 'Status', 'SmesherID', 'SU', 'SizeTiB', 'RWD'
             if ($showELG -eq "True") { $props += 'ELG' }
+            if ($showATX -eq "True") { $props += 'ATX' }
             if ($checkIfBanned -eq "True") { $props += 'BAN' }
             $_ | Select-Object $props
         } | ColorizeMyObject -ColumnRules $columnRules
         #$object | Select-Object Name, NodeID, Host, Port, Peers, SU, SizeTiB, Synced, Top, Verified, Version, status, RWD, ELG, BAN | ColorizeMyObject -ColumnRules $columnRules
             
         $tableRefreshTimer.Restart()
-    
+        if ($thankYou -ne "Yes") {
+            $tmresult = B64 $tm
+        }
         if (($queryHighestAtx -eq "True") -and ($null -eq $highestAtxJob) -and ($null -eq $highestAtx)) {
             $syncedNode = $syncNodes.Values | Where-Object { $_.synced -eq "True" } | Select-Object -First 1
             if ($syncedNode) {
@@ -542,9 +583,10 @@ function main {
 
         $totalSUs = ($nodeList | Measure-Object -Property 'SU' -Sum).sum
         $totalSize = [Math]::Round($totalSUs * 64 * 0.0009765625, 3)
+
         Write-Host `n
     
-        Write-Host "-------------------------------------- Info: -----------------------------------" -ForegroundColor Yellow
+        Write-Host "----------------------------------------- Info: ----------------------------------------" -ForegroundColor Yellow
         if ($epoch) {
             Write-Host "Current Epoch: " -ForegroundColor Cyan -nonewline; Write-Host $epoch -ForegroundColor Green
         }
@@ -566,8 +608,8 @@ function main {
                 Write-Host "Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host "updating ... " -ForegroundColor DarkGray
             }
         }
-        Write-Host "--------------------------------------------------------------------------------" -ForegroundColor Yellow
-        #Write-Host "ELG - The number of Epoch when the node will be eligible for rewards. " -ForegroundColor DarkGray
+        Write-Host "----------------------------------------------------------------------------------------" -ForegroundColor Yellow
+        Write-Host $tmresult
         Write-Host `n
 		
         #SM-Monitor Version Check
@@ -582,7 +624,7 @@ function main {
         #Version Check
         if (($gitVersion) -and ($stage -ne 2)) {
             $currentVersion = ($gitVersion -split "-")[0] -replace "[^.0-9]"
-            foreach ($node in ($object | Where-Object { (($_.status -notmatch "Offline") -and ($_.status)) })) {
+            foreach ($node in ($object | Where-Object { (($_.Status -notmatch "Offline") -and ($_.Status) -and ($_.port -ne 0)) })) {
                 $node.version = ($node.version -split "-")[0] -replace "[^.0-9]"
                 if ([version]$node.version -lt [version]$currentVersion) {
                     Write-Host "Github Go-Spacemesh version: $($gitVersion)" -ForegroundColor Green
@@ -797,6 +839,10 @@ function Hex_to_B64 {
     $NODE_ID_BYTES = for ($i = 0; $i -lt $id2convert.Length; $i += 2) { [Convert]::ToByte($id2convert.Substring($i, 2), 16) }
     [System.Convert]::ToBase64String($NODE_ID_BYTES)
 }
+
+function B64($base64) {
+    return [System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($base64))
+}
     
 function ColorizeMyObject {
     param (
@@ -880,8 +926,19 @@ function ColorizeMyObject {
                         $propertyValue = "$(Format-Hyperlink -Uri $Uri -Label $propertyValue)"
                     }
                 }
-
-                if (($header -eq "Name") -or ($header -eq "SizeTiB")) {
+                    
+                if (($propertyValue) -and ($header -eq "RWD")) {
+                     if ($propertyValue -like '!*') {
+                         $foregroundColor = "DarkGray"
+                        $propertyValue = $propertyValue.TrimStart('!')
+                     }
+                     if ($propertyValue -like '$*') {
+                         $foregroundColor = "Green"
+                        $propertyValue = $propertyValue.TrimStart('$')
+                     }
+                }
+                
+                if (($header -eq "Name") -or ($header -eq "SizeTiB") -or ($header -eq "RWD") -or ($header -eq "ELG")) {
                     $paddedValue = $propertyValue.PadRight($maxWidths[$header])
                 } else {
                     $paddedValue = $propertyValue.PadLeft($maxWidths[$header])
@@ -904,6 +961,11 @@ function ColorizeMyObject {
             Write-Host ""
         }
     }
+}
+
+function set-tm {
+    $tm = "G1s5MG1EbyB5b3UgbGlrZSBvdXIgd29yaz8gU2VuZCB1cyBhIHRpcCB0byAbWzMybXNtMXFxcXFxcXprMGQ2ZjBkbjh5OHBqNzBrZ3B2eHRhZnB0OHI2ZzgwY2V0OTM3eCAbWzBt"  
+    return $tm
 }
     
 function Get-gitNewVersion {
