@@ -529,7 +529,6 @@ function main {
                         $jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$coinbase`" }, `"account_data_flags`": 4 } }"
                         $balance = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' -max-time 5 $($onlineNode.Host):$($onlineNode.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value 2>$null
                         $balance = [math]::Round($balance / 1000000000, 3)
-                        if ($balance -lt 10) {$tm = ""}
                         $balanceSMH = [string]($balance) + " SMH"
                         $coinbase = "($coinbase)"
                         if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
