@@ -616,7 +616,7 @@ function main {
         if (($gitNewMonitorVersion) -and ($stage -ne 2)) {
             $taglist = ($gitNewMonitorVersion -split "-")[0] -replace "[^.0-9]"
             if ([version]$version -lt [version]$taglist) {
-                Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> New sm-monitor update avaiable! $($taglist)" -ForegroundColor DarkYellow
+                Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> New sm-monitor update available! $($taglist)" -ForegroundColor DarkYellow
                 Write-Host `n
             }       
         }
