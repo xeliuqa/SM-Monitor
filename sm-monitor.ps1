@@ -552,7 +552,9 @@ function main {
         $object | ForEach-Object {
             $props = 'Name', 'Host'
             if ($showPorts -eq "True") { $props += 'Port', 'Port2', 'Port3' }
-            $props += 'Peers', 'Synced', 'Layer', 'Verified', 'Version', 'Status', 'SmesherID', 'SU', 'SizeTiB', 'RWD'
+            $props += 'Peers', 'Synced', 'Layer', 'Verified', 'Version', 'Status'
+            if (($showID -eq "True") -or ($showFullID -eq "True")) { $props += 'SmesherID' }
+            $props += 'SU', 'SizeTiB', 'RWD'
             if ($showELG -eq "True") { $props += 'ELG' }
             if ($showATX -eq "True") { $props += 'ATX' }
             if ($checkIfBanned -eq "True") { $props += 'BAN' }
