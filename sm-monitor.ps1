@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 4.07
+.VERSION 4.08
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -18,7 +18,7 @@ Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 Show us your gratitude by sending a tip to sm1qqqqqqzk0d6f0dn8y8pj70kgpvxtafpt8r6g80cet937x 
 SM-Monitor 2023-2024, all rights reserved.
 	-------------------------------------------------------------------------------------------- #>
-$version = "4.07"
+$version = "4.08"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 function main {
@@ -135,6 +135,7 @@ function main {
                         $node.emailsent = ""
                     }
                     else { $node.synced = "False" }
+		    & $grpcurl -plaintext -d '{"module": "grpc", "level": "error"}' "$($node.host):$($node.port2)" spacemesh.v1.DebugService.ChangeLogLevel >$null
                 }
                 else {
                     $node.online = ""
@@ -240,13 +241,15 @@ function main {
                     $node.publicKey = $publicKeys.publicKeys[0]
                 }
 
-                $state = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus")) | ConvertFrom-Json).status 2>$null
-                if ($state) {
-                    $node.numUnits = $state.opts.numUnits
+                if ($node.status -eq "Smeshing") {
+                    $state = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus")) | ConvertFrom-Json).status 2>$null
+                    if ($state) {
+                        $node.numUnits = $state.opts.numUnits
     
-                    if ($state.state -eq "STATE_IN_PROGRESS") {
-                        $percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 2)
-                        $node.status = "$($percent)%"
+                        if ($state.state -eq "STATE_IN_PROGRESS") {
+                            $percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 2)
+                            $node.status = "$($percent)%"
+                        }
                     }
                 }
 			
