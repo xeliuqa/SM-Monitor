@@ -2,6 +2,9 @@
 $showWalletBalance = "False" # "True" or "False"
 $coinbaseAddressVisibility = "full" # "partial", "full", "hidden"
 $fakeCoins = 0 # For screenshot purposes.  Set to 0 to pull real coins.  FAKE 'EM OUT!  (Example: 2352.24)
+$coinbase1 = ""
+$coinbase2 = ""
+$coinbase3 = ""
     
 $tableRefreshTime = 300 # Time in seconds that the refresh happens.  Lower value = more grpc entries in logs.
 $DefaultBackgroundColor = "Black" # Set to the colour of your console if 'Black' doesn't look good
@@ -9,6 +12,7 @@ $DefaultBackgroundColor = "Black" # Set to the colour of your console if 'Black'
 $emailEnable = "False" # "True" to enable email notification, "True" or "False"
 $myEmail = "my@email.com" #Set your Email for notifications
 
+$showID = "False" # Set to True to show short of full ID. "True" or "False"
 $showFullID = "False" # Set to True to see a full ID intead of short one. "True" or "False"
 $showPorts = "False" # True to show node's ports. "True" or "False"
 $queryHighestAtx = "False" # "True" to request for Highest ATX. "True" or "False"

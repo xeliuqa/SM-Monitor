@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 4.07
+.VERSION 4.09
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -18,7 +18,7 @@ Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 Show us your gratitude by sending a tip to sm1qqqqqqzk0d6f0dn8y8pj70kgpvxtafpt8r6g80cet937x 
 SM-Monitor 2023-2024, all rights reserved.
 	-------------------------------------------------------------------------------------------- #>
-$version = "4.07"
+$version = "4.09"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 function main {
@@ -135,6 +135,7 @@ function main {
                         $node.emailsent = ""
                     }
                     else { $node.synced = "False" }
+		    & $grpcurl -plaintext -d '{"module": "grpc", "level": "error"}' "$($node.host):$($node.port2)" spacemesh.v1.DebugService.ChangeLogLevel >$null
                 }
                 else {
                     $node.online = ""
@@ -240,13 +241,15 @@ function main {
                     $node.publicKey = $publicKeys.publicKeys[0]
                 }
 
-                $state = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus")) | ConvertFrom-Json).status 2>$null
-                if ($state) {
-                    $node.numUnits = $state.opts.numUnits
+                if ($node.status -eq "Smeshing") {
+                    $state = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus")) | ConvertFrom-Json).status 2>$null
+                    if ($state) {
+                        $node.numUnits = $state.opts.numUnits
     
-                    if ($state.state -eq "STATE_IN_PROGRESS") {
-                        $percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 2)
-                        $node.status = "$($percent)%"
+                        if ($state.state -eq "STATE_IN_PROGRESS") {
+                            $percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 2)
+                            $node.status = "$($percent)%"
+                        }
                     }
                 }
 			
@@ -508,9 +511,13 @@ function main {
 
         if (($stage -ne 4) -and ($stage -ne 1)) {
             # Find all online nodes, then select the one that works.  
-            $filterObjects = $object | Where-Object { $_.Synced -match "True" } # -and $_.Host -match "localhost" -and $_.status -match "True"
+            $filterObjects = $object | Where-Object { $_.Synced -match "True" }
             $coinbase = $null
             $balance = $null
+            $balance1 = $null
+            $balance2 = $null
+            $balance3 = $null
+            $balanceSMH = "Unable to retrieve the balance at the moment"
             if ($filterObjects) {
                 $onlineNode = $filterObjects[0]
                 if (($checkIfBanned -eq "True") -and !$malfeasanceStream) {
@@ -520,27 +527,35 @@ function main {
                     foreach ($node in $filterObjects) {
                         $onlineNode = $node
                         $coinbase = (Invoke-Expression "$grpcurl --plaintext -max-time 5 $($onlineNode.Host):$($onlineNode.Port2) spacemesh.v1.SmesherService.Coinbase" | ConvertFrom-Json).accountId.address 2>$null
-                        if ($coinbase) {
+                        if ($coinbase -and $coinbase.StartsWith("sm1")) {
                             break
                         }
                     }
 
-                    if ($coinbase) {
+                    if ($coinbase -and $coinbase.StartsWith("sm1")) {
                         $jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$coinbase`" }, `"account_data_flags`": 4 } }"
                         $balance = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' -max-time 5 $($onlineNode.Host):$($onlineNode.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value 2>$null
                         $balance = [math]::Round($balance / 1000000000, 3)
                         $balanceSMH = [string]($balance) + " SMH"
-                        $coinbase = "($coinbase)"
-                        if ($fakeCoins -ne 0) { [string]$balanceSMH = "$($fakeCoins) SMH" }
-                        if ($coinbaseAddressVisibility -eq "partial") {
-                            $coinbase = '(' + $($coinbase).Substring($($coinbase).IndexOf(")") - 4, 4) + ')'
                         }
-                        elseif ($coinbaseAddressVisibility -eq "hidden") {
-                            $coinbase = "(----)"
-                        }
-                    } else {
-                        $coinbase = ""
-                        $balanceSMH = "Unable to retrieve the balance at the moment"
+
+                    if ($coinbase1 -and $coinbase1.StartsWith("sm1")) {
+                        $jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$coinbase1`" }, `"account_data_flags`": 4 } }"
+                        $balance1 = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' -max-time 5 $($onlineNode.Host):$($onlineNode.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value 2>$null
+                        $balance1 = [math]::Round($balance1 / 1000000000, 3)
+                        $balance1SMH = [string]($balance1) + " SMH"
+                    }
+                    if ($coinbase2 -and $coinbase2.StartsWith("sm1")) {
+                        $jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$coinbase2`" }, `"account_data_flags`": 4 } }"
+                        $balance2 = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' -max-time 5 $($onlineNode.Host):$($onlineNode.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value 2>$null
+                        $balance2 = [math]::Round($balance2 / 1000000000, 3)
+                        $balance2SMH = [string]($balance2) + " SMH"
+                    }
+                    if ($coinbase3 -and $coinbase3.StartsWith("sm1")) {
+                        $jsonPayload = "{ `"filter`": { `"account_id`": { `"address`": `"$coinbase3`" }, `"account_data_flags`": 4 } }"
+                        $balance3 = (Invoke-Expression "$grpcurl -plaintext -d '$jsonPayload' -max-time 5 $($onlineNode.Host):$($onlineNode.Port) spacemesh.v1.GlobalStateService.AccountDataQuery" | ConvertFrom-Json).accountItem.accountWrapper.stateCurrent.balance.value 2>$null
+                        $balance3 = [math]::Round($balance3 / 1000000000, 3)
+                        $balance3SMH = [string]($balance3) + " SMH"
                     }
                 }
             }
@@ -552,7 +567,9 @@ function main {
         $object | ForEach-Object {
             $props = 'Name', 'Host'
             if ($showPorts -eq "True") { $props += 'Port', 'Port2', 'Port3' }
-            $props += 'Peers', 'Synced', 'Layer', 'Verified', 'Version', 'Status', 'SmesherID', 'SU', 'SizeTiB', 'RWD'
+            $props += 'Peers', 'Synced', 'Layer', 'Verified', 'Version', 'Status'
+            if (($showID -eq "True") -or ($showFullID -eq "True")) { $props += 'SmesherID' }
+            $props += 'SU', 'SizeTiB', 'RWD'
             if ($showELG -eq "True") { $props += 'ELG' }
             if ($showATX -eq "True") { $props += 'ATX' }
             if ($checkIfBanned -eq "True") { $props += 'BAN' }
@@ -596,8 +613,51 @@ function main {
         if ($totalLayers) {
             Write-Host "Total Layers: " -ForegroundColor Cyan -nonewline; Write-Host ($totalLayers) -ForegroundColor Yellow -nonewline; Write-Host " Layers"
         }
-        if ($showWalletBalance -eq "True") {
-            Write-Host "Balance: " -ForegroundColor Cyan -NoNewline; Write-Host "$balanceSMH" -ForegroundColor White -NoNewline; Write-Host " $($coinbase)" -ForegroundColor Cyan
+        if (($showWalletBalance -eq "True") -or ($fakeCoins -ne 0)) {
+            if ($coinbase -and $coinbase.StartsWith("sm1")) {
+            $showCoinbase = "($coinbase)"
+            if ($coinbaseAddressVisibility -eq "partial") {
+                $showCoinbase = '(' + $($showCoinbase).Substring($($showCoinbase).IndexOf(")") - 4, 4) + ')'
+            }
+            elseif ($coinbaseAddressVisibility -eq "hidden") {
+                $showCoinbase = "(***)"
+            }
+            }
+            if ($fakeCoins -ne 0) { 
+                [string]$balanceSMH = "$($fakeCoins) SMH"
+            }
+            Write-Host "Balance: " -ForegroundColor Cyan -NoNewline; Write-Host "$balanceSMH" -ForegroundColor White -NoNewline; Write-Host " $($showCoinbase)" -ForegroundColor Cyan
+        }
+        
+        if ($coinbase1 -and ($balance1 -ne $null)) {
+            $showCoinbase1 = "($coinbase1)"
+            if ($coinbaseAddressVisibility -eq "partial") {
+                $showCoinbase1 = '(' + $($showCoinbase1).Substring($($showCoinbase1).IndexOf(")") - 4, 4) + ')'
+            }
+            elseif ($coinbaseAddressVisibility -eq "hidden") {
+                $showCoinbase1 = "(***)"
+            }
+            Write-Host "Balance1: " -ForegroundColor Cyan -NoNewline; Write-Host "$balance1SMH" -ForegroundColor White -NoNewline; Write-Host " $($showCoinbase1)" -ForegroundColor Cyan
+        }
+        if ($coinbase2 -and ($balance2 -ne $null)) {
+            $showCoinbase2 = "($coinbase2)"
+            if ($coinbaseAddressVisibility -eq "partial") {
+                $showCoinbase2 = '(' + $($showCoinbase2).Substring($($showCoinbase2).IndexOf(")") - 4, 4) + ')'
+            }
+            elseif ($coinbaseAddressVisibility -eq "hidden") {
+                $showCoinbase2 = "(***)"
+            }
+            Write-Host "Balance2: " -ForegroundColor Cyan -NoNewline; Write-Host "$balance2SMH" -ForegroundColor White -NoNewline; Write-Host " $($showCoinbase2)" -ForegroundColor Cyan
+        }
+        if ($coinbase3 -and ($balance3 -ne $null)) {
+            $showCoinbase3 = "($coinbase3)"
+            if ($coinbaseAddressVisibility -eq "partial") {
+                $showCoinbase3 = '(' + $($showCoinbase3).Substring($($showCoinbase3).IndexOf(")") - 4, 4) + ')'
+            }
+            elseif ($coinbaseAddressVisibility -eq "hidden") {
+                $showCoinbase3 = "(***)"
+            }
+            Write-Host "Balance3: " -ForegroundColor Cyan -NoNewline; Write-Host "$balance3SMH" -ForegroundColor White -NoNewline; Write-Host " $($showCoinbase3)" -ForegroundColor Cyan
         }
         Write-Host "Total SUs: " -ForegroundColor Cyan -nonewline; Write-Host ($totalSUs) -ForegroundColor Yellow -nonewline; Write-Host " SUs" -nonewline; Write-Host "  Total Size: " -ForegroundColor Cyan -nonewline; Write-Host ($totalSize) -ForegroundColor Yellow -nonewline; Write-Host " TiBs"
         if ($highestAtx) {
@@ -616,7 +676,7 @@ function main {
         if (($gitNewMonitorVersion) -and ($stage -ne 2)) {
             $taglist = ($gitNewMonitorVersion -split "-")[0] -replace "[^.0-9]"
             if ([version]$version -lt [version]$taglist) {
-                Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> New sm-monitor update avaiable! $($taglist)" -ForegroundColor DarkYellow
+                Write-Host "Info:" -ForegroundColor White -nonewline; Write-Host " --> New sm-monitor update available! $($taglist)" -ForegroundColor DarkYellow
                 Write-Host `n
             }       
         }
