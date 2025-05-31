@@ -936,28 +936,111 @@ function ColorizeMyObject {
     
     end {
         $headers = $dataBuffer[0].PSObject.Properties.Name
-    
         $maxWidths = @{}
+        
         foreach ($header in $headers) {
             $headerLength = "$header".Length
             $dataMaxLength = ($dataBuffer | ForEach-Object { "$($_.$header)".Length } | Measure-Object -Maximum).Maximum
             $maxWidths[$header] = [Math]::Max($headerLength, $dataMaxLength)
         }
     
-        $headers | ForEach-Object {
-            $paddedHeader = $_.PadRight($maxWidths[$_])
-            Write-Host $paddedHeader -NoNewline;
+        foreach ($header in $headers) {
+            $paddedHeader = $header.PadRight($maxWidths[$header])
+            Write-Host $paddedHeader -NoNewline
             Write-Host "  " -NoNewline
         }
         Write-Host ""
     
-        $headers | ForEach-Object {
-            $dashes = '-' * $maxWidths[$_]
+        foreach ($header in $headers) {
+            $dashes = '-' * $maxWidths[$header]
             Write-Host $dashes -NoNewline
             Write-Host "  " -NoNewline
         }
         Write-Host ""
-    
+
+        function Write-RWDField {
+            param(
+                [string]$Value,
+                [int]$ColumnWidth,
+                [string]$DefaultForegroundColor = $null,
+                [string]$DefaultBackgroundColor = $null
+            )
+            
+            if ($Value -match '\s') {
+                $parts = $Value -split '\s+' | Where-Object { $_ -ne '' }
+                $processedParts = @()
+                
+                foreach ($part in $parts) {
+                    $cleanPart = $part
+                    $color = $null
+                    
+                    if ($part -like '!*') {
+                        $color = "DarkGray"
+                        $cleanPart = $part.TrimStart('!')
+                    } elseif ($part -like '$*') {
+                        $color = "Green"
+                        $cleanPart = $part.TrimStart('$')
+                    }
+                    
+                    $processedParts += @{ Text = $cleanPart; Color = $color }
+                }
+                
+                $totalLength = 0
+                for ($i = 0; $i -lt $processedParts.Count; $i++) {
+                    $part = $processedParts[$i]
+                    
+                    if ($part.Color) {
+                        Write-Host $part.Text -NoNewline -ForegroundColor $part.Color
+                    } elseif ($DefaultForegroundColor -or $DefaultBackgroundColor) {
+                        $params = @{ Object = $part.Text; NoNewline = $true }
+                        if ($DefaultForegroundColor) { $params.ForegroundColor = $DefaultForegroundColor }
+                        if ($DefaultBackgroundColor) { $params.BackgroundColor = $DefaultBackgroundColor }
+                        Write-Host @params
+                    } else {
+                        Write-Host $part.Text -NoNewline
+                    }
+                    
+                    $totalLength += $part.Text.Length
+                    
+                    if ($i -lt $processedParts.Count - 1) {
+                        Write-Host " " -NoNewline
+                        $totalLength += 1
+                    }
+                }
+                
+                $padding = $ColumnWidth - $totalLength
+                if ($padding -gt 0) {
+                    Write-Host (" " * $padding) -NoNewline
+                }
+                
+            } else {
+                # Single value
+                $cleanValue = $Value
+                $color = $null
+                
+                if ($Value -like '!*') {
+                    $color = "DarkGray"
+                    $cleanValue = $Value.TrimStart('!')
+                } elseif ($Value -like '$*') {
+                    $color = "Green"
+                    $cleanValue = $Value.TrimStart('$')
+                }
+                
+                $paddedValue = $cleanValue.PadRight($ColumnWidth)
+                
+                if ($color) {
+                    Write-Host $paddedValue -NoNewline -ForegroundColor $color
+                } elseif ($DefaultForegroundColor -or $DefaultBackgroundColor) {
+                    $params = @{ Object = $paddedValue; NoNewline = $true }
+                    if ($DefaultForegroundColor) { $params.ForegroundColor = $DefaultForegroundColor }
+                    if ($DefaultBackgroundColor) { $params.BackgroundColor = $DefaultBackgroundColor }
+                    Write-Host @params
+                } else {
+                    Write-Host $paddedValue -NoNewline
+                }
+            }
+        }
+
         foreach ($row in $dataBuffer) {
             foreach ($header in $headers) {
                 $propertyValue = "$($row.$header)"
@@ -965,67 +1048,71 @@ function ColorizeMyObject {
                 $backgroundColor = $null
     
                 foreach ($rule in $ColumnRules) {
-                    if ($header -eq $rule.Column) {
-                        if ($propertyValue -like $rule.Value) {
-                            $foregroundColor = $rule.ForegroundColor
-                            if ($rule.BackgroundColor) {
-                                $backgroundColor = $rule.BackgroundColor
+                    if ($header -eq $rule.Column -and $propertyValue -like $rule.Value) {
+                        $foregroundColor = $rule.ForegroundColor
+                        if ($rule.BackgroundColor) {
+                            $backgroundColor = $rule.BackgroundColor
+                        }
+                    }
+                }
+                
+                if ($header -eq "RWD" -and $propertyValue) {
+                    Write-RWDField -Value $propertyValue -ColumnWidth $maxWidths[$header] -DefaultForegroundColor $foregroundColor -DefaultBackgroundColor $backgroundColor
+                    Write-Host "  " -NoNewline
+                    continue
+                }
+                
+                switch ($header) {
+                    "Status" {
+                        if ($propertyValue -like '!*') {
+                            if (-not $foregroundColor) {
+                                $foregroundColor = "Red"
                             }
-                            #break
+                            $propertyValue = $propertyValue.TrimStart('!')
                         }
                     }
-                }
-                
-                if ($header -eq "Status") {
-                    if ($propertyValue -like '!*') {
-                        $foregroundColor = "Red"
-                        $propertyValue = $propertyValue.TrimStart('!')
-                    }
-                }
-                
-                if (($propertyValue) -and ($header -eq "SmesherID")) {
-                     if ($propertyValue -like '!*') {
-                        $foregroundColor = "Red"
-                        $propertyValue = $propertyValue.TrimStart('!')
-                    } else{
-                        if ($showFullID -eq "True") {
-                            $foregroundColor = "Green"
-                        }
-                    }
-
-                    if ($showFullID -eq "True") {
-                        $propertyValue = $propertyValue.ToLower()
-                        $Uri = "https://explorer.spacemesh.io/smeshers/0x" + $propertyValue
-                        $propertyValue = "$(Format-Hyperlink -Uri $Uri -Label $propertyValue)"
-                    }
-                }
                     
-                if (($propertyValue) -and ($header -eq "RWD")) {
-                     if ($propertyValue -like '!*') {
-                         $foregroundColor = "DarkGray"
-                        $propertyValue = $propertyValue.TrimStart('!')
-                     }
-                     if ($propertyValue -like '$*') {
-                         $foregroundColor = "Green"
-                        $propertyValue = $propertyValue.TrimStart('$')
-                     }
+                    "SmesherID" {
+                        if ($propertyValue) {
+                            if ($propertyValue -like '!*') {
+                                if (-not $foregroundColor) {
+                                    $foregroundColor = "Red"
+                                }
+                                $propertyValue = $propertyValue.TrimStart('!')
+                            } elseif ($showFullID -eq "True") {
+                                if (-not $foregroundColor) {
+                                    $foregroundColor = "Green"
+                                }
+                            }
+
+                            if ($showFullID -eq "True") {
+                                $propertyValue = $propertyValue.ToLower()
+                                $Uri = "https://explorer.spacemesh.io/smeshers/0x" + $propertyValue
+                                $propertyValue = "$(Format-Hyperlink -Uri $Uri -Label $propertyValue)"
+                            }
+                        }
+                    }
                 }
                 
-                if (($header -eq "Name") -or ($header -eq "SizeTiB") -or ($header -eq "RWD") -or ($header -eq "ELG")) {
+                if ($header -in @("Name", "SizeTiB", "RWD", "ELG")) {
                     $paddedValue = $propertyValue.PadRight($maxWidths[$header])
                 } else {
                     $paddedValue = $propertyValue.PadLeft($maxWidths[$header])
                 }
                 
                 if ($foregroundColor -or $backgroundColor) {
+                    $params = @{
+                        Object = $paddedValue
+                        NoNewline = $true
+                    }
+                    if ($foregroundColor) {
+                        $params.ForegroundColor = $foregroundColor
+                    }
                     if ($backgroundColor) {
-                        Write-Host $paddedValue -NoNewline -ForegroundColor $foregroundColor -BackgroundColor $backgroundColor
+                        $params.BackgroundColor = $backgroundColor
                     }
-                    else {
-                        Write-Host $paddedValue -NoNewline -ForegroundColor $foregroundColor
-                    }
-                }
-                else {
+                    Write-Host @params
+                } else {
                     Write-Host $paddedValue -NoNewline
                 }
     
