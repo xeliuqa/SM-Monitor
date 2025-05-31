@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#  -----------------------------------------------------------------------------------------------
 <#PSScriptInfo    
-.VERSION 4.09
+.VERSION 4.10
 .GUID 98d4b6b6-00e1-4632-a836-33767fe196cd
 .AUTHOR
 .PROJECTURI https://github.com/xeliuqa/SM-Monitor
@@ -16,9 +16,9 @@ With Thanks To: == S A K K I == Stizerg == PlainLazy == Shanyaa == Miguell
 Get grpcurl here: https://github.com/fullstorydev/grpcurl/releases
 
 Show us your gratitude by sending a tip to sm1qqqqqqzk0d6f0dn8y8pj70kgpvxtafpt8r6g80cet937x 
-SM-Monitor 2023-2024, all rights reserved.
+SM-Monitor 2023-2025, all rights reserved.
 	-------------------------------------------------------------------------------------------- #>
-$version = "4.09"
+$version = "4.10"
 $host.ui.RawUI.WindowTitle = $MyInvocation.MyCommand.Name
 
 function main {
@@ -99,6 +99,7 @@ function main {
     $gitVersion = Get-gitNewVersion
     $gitNewMonitorVersion = Get-gitNewMonitorVersion
     $malfeasanceStream = $null
+    $prevEpoch = 0
     
     if (Test-Path ".\RewardsTrackApp.tmp") {
         Clear-Content ".\RewardsTrackApp.tmp"
@@ -135,11 +136,13 @@ function main {
                         $node.emailsent = ""
                     }
                     else { $node.synced = "False" }
-		    & $grpcurl -plaintext -d '{"module": "grpc", "level": "error"}' "$($node.host):$($node.port2)" spacemesh.v1.DebugService.ChangeLogLevel >$null
+                    & $grpcurl -plaintext -d '{"module": "grpc", "level": "error"}' "$($node.host):$($node.port2)" spacemesh.v1.DebugService.ChangeLogLevel >$null
                 }
                 else {
+                    $publicKeys = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.SmesherIDs")) | ConvertFrom-Json) 2>$null
+                    if ($publicKeys) {$node.status = "Smesher"}
+                    else {$node.status = "Offline"}
                     $node.online = ""
-                    $node.status = "Offline"
                     $node.synced = $null
                     $node.numUnits = $null
                     $node.connectedPeers = $null
@@ -245,7 +248,9 @@ function main {
                     $state = ((Invoke-Expression ("$($grpcurl) --plaintext -max-time 5 $($node.host):$($node.port2) spacemesh.v1.SmesherService.PostSetupStatus")) | ConvertFrom-Json).status 2>$null
                     if ($state) {
                         $node.numUnits = $state.opts.numUnits
-    
+                        if ($state.state -eq "STATE_NOT_STARTED") {
+                            $node.status = "Online"
+                        }
                         if ($state.state -eq "STATE_IN_PROGRESS") {
                             $percent = [math]::round(($state.numLabelsWritten / 1024 / 1024 / 1024 * 16) / ($state.opts.numUnits * 64) * 100, 2)
                             $node.status = "$($percent)%"
@@ -306,7 +311,7 @@ function main {
                 }
                 if ($node.layers) {
                     $layers += $node.layers
-                    $node.layers = $null
+                    #$node.layers = $null
                 }
                 if ($node.activations) {
                     $activations += $node.activations
@@ -327,7 +332,7 @@ function main {
             $node.atx = $null
             $node.ban = $null
             $node.rewards = $null
-            $node.layers = $null
+            #$node.layers = $null
 			
             foreach ($name in $postServices.Keys) {
                 $post = $postServices[$name]
@@ -338,8 +343,13 @@ function main {
 
             foreach ($key in $layers.Keys) {
                 if ($key -eq $node.publicKey) {
-                    $node.rewards = $layers[$key].count
-                    $node.layers = $layers[$key]
+                    if ($prevEpoch -ne $epoch) {
+                        $node.layers = $layers[$key]
+                    }
+                    elseif (($layers[$key] -ne $null) -and ($node.layers -ne $layers[$key])) {
+                        $node.layers = $layers[$key]
+                    }
+                    $node.rewards = if ($layers[$key] -eq $null) { 0 } else { $layers[$key].count }
                 }
             }
             
@@ -425,6 +435,8 @@ function main {
                 }
             }
         }
+        
+        $prevEpoch = $epoch
         
         foreach ($node in $syncNodes.Values) {
             if (($stage -ne 2) -and ($node.port -eq 0) -and ($node.port2 -eq 0) -and ($node.port3 -ne 0)) {
@@ -659,6 +671,7 @@ function main {
             }
             Write-Host "Balance3: " -ForegroundColor Cyan -NoNewline; Write-Host "$balance3SMH" -ForegroundColor White -NoNewline; Write-Host " $($showCoinbase3)" -ForegroundColor Cyan
         }
+        
         Write-Host "Total SUs: " -ForegroundColor Cyan -nonewline; Write-Host ($totalSUs) -ForegroundColor Yellow -nonewline; Write-Host " SUs" -nonewline; Write-Host "  Total Size: " -ForegroundColor Cyan -nonewline; Write-Host ($totalSize) -ForegroundColor Yellow -nonewline; Write-Host " TiBs"
         if ($highestAtx) {
             Write-Host "Highest ATX: " -ForegroundColor Cyan -nonewline; Write-Host (B64_to_Hex -id2convert $highestAtx.id.id) -ForegroundColor Green
@@ -1130,6 +1143,7 @@ function applyColumnRules {
         @{ Column = "Status"; Value = "Idle"; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "Proving"; ForegroundColor = "Yellow"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "Smeshing"; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
+        @{ Column = "Status"; Value = "Smesher"; ForegroundColor = "Green"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "False"; ForegroundColor = "DarkRed"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "Status"; Value = "Offline"; ForegroundColor = "DarkGray"; BackgroundColor = $DefaultBackgroundColor },
         @{ Column = "RWD"; Value = "*"; ForegroundColor = "Yellow"; BackgroundColor = $DefaultBackgroundColor },
